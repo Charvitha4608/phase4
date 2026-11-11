@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Results {{ year }}{% endblock %}
+{% block content %}
+<h1>Results {{ year }}</h1>
+<nav class="tabs" aria-label="Series">
+  {% for c in categories %}<a {% if c.cat_code == series %}class="active" aria-current="page"{% endif %} href="{{ url_for('results', series=c.cat_code, year=year) }}">{{ c.name }}</a>{% endfor %}
+</nav>
+<form class="inline" action="{{ url_for('results') }}" method="get">
+  <input type="hidden" name="series" value="{{ series }}">
+  <label>Year <select name="year">{% for y in years %}<option {% if y == year %}selected{% endif %}>{{ y }}</option>{% endfor %}</select></label>
+  <button>Show</button>
+  <a href="{{ url_for('champions') }}">Champions and records</a>
+</form>
+{% if teams is defined %}
+<div class="table-wrap"><table>
+<thead><tr><th>Rank</th><th>Bib</th><th>Team</th><th>Members listed</th><th>Country</th><th>Time</th><th>Diff</th></tr></thead>
+<tbody>{% for t in teams %}<tr><td>{{ t.rank_in_race or t.finish_status }}</td><td>{{ t.bib_number or '' }}</td><td>{{ t.team }}{% if t.penalty_ms %} <span class="chip warn">+{{ (t.penalty_ms / 1000)|int }} s penalty</span>{% endif %}</td><td>{{ t.members or '' }}</td><td>{{ t.country or '' }}</td><td>{{ t.finish_time_ms|time }}</td><td>{{ t.diff_to_leader_ms|diff }}</td></tr>{% endfor %}</tbody>
+</table></div>
+{% else %}
+<dl class="stats">
+  <div><dt>Fastest</dt><dd>{{ stats.fastest_ms|time }}</dd></div>
+  <div><dt>Average</dt><dd>{{ stats.average_ms|time }}</dd></div>
+  <div><dt>Slowest</dt><dd>{{ stats.slowest_ms|time }}</dd></div>
+  <div><dt>Pairs with no drop</dt><dd>{{ stats.no_drop_pairs }}</dd></div>
+</dl>
+{% if stats.drops_recorded == 0 %}<p class="muted">The site does not publish drops. This count grows as officials record them.</p>{% endif %}
+{% for number, heat_rows in rows|groupby('heat_number') %}
+{% if rows|map(attribute='heat_number')|unique|list|length > 1 %}<h2>{{ 'Final' if heat_rows[0].round == 'FINAL' else 'Heat ' ~ number }}</h2>{% endif %}
+<div class="table-wrap"><table>
+<thead><tr><th>Rank</th><th>Bib</th><th>Carrier</th><th>Carried</th><th>Country</th><th>Time</th><th>Diff</th><th>Drops</th><th>Status</th></tr></thead>
+<tbody>{% for r in heat_rows %}<tr>
+<td>{{ r.rank_in_heat or ('' if r.finish_status == 'COMPLETED' else r.finish_status) }}</td><td>{{ r.bib_number or '' }}</td><td>{{ r.carrier }}</td><td>{{ r.carried }}</td><td>{{ r.country or '' }}</td><td>{{ r.finish_time_ms|time }}</td><td>{{ r.diff_to_leader_ms|diff(series) }}</td><td>{{ '' if r.drop_count is none else r.drop_count }}</td>
+<td>{{ r.finish_status }}{% if r.under_protest %} <span class="chip warn">Under protest</span>{% endif %}{% if r.composition_changed %} <span class="chip">Pair changed</span>{% endif %}</td></tr>{% endfor %}</tbody>
+</table></div>
+{% endfor %}
+{% endif %}
+{% endblock %}

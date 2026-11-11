@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Track and Rules{% endblock %}
+{% block content %}
+<h1>Track and Rules</h1>
+<h2>Series</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Series</th><th>Distance</th><th>Min. carried weight</th><th>Min. age, carrier</th><th>Min. age, carried</th><th>Water</th><th>Dry obstacles</th><th>Team size</th></tr></thead>
+<tbody>{% for c in categories %}<tr><td>{{ c.name }}</td><td>{{ c.distance_m }} m</td><td>{{ c.min_weight_carried_kg }} kg</td><td>{{ c.min_age_carrier }}</td><td>{{ c.min_age_carried }}</td><td>{{ 'Yes' if c.has_water_obstacle else 'No' }}</td><td>{{ 'Yes' if c.has_dry_obstacles else 'No' }}</td><td>{{ c.max_team_size }}</td></tr>{% endfor %}</tbody>
+</table></div>
+<h2>Main rules</h2>
+<ul>
+<li>A carried competitor under the minimum weight wears a backpack that makes up the difference.</li>
+<li>Dropping the person you carry has no penalty, but they must be picked up immediately.</li>
+<li>Spiked heels, hiking boots and football boots are banned. Footwear is inspected before the race.</li>
+<li>A written protest must be handed in within 15 minutes of the last pair finishing. The fee is €150.</li>
+</ul>
+{% endblock %}

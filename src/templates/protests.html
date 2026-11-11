@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}Protests{% endblock %}
+{% block content %}
+<h1>Protests</h1>
+<p class="actions"><a class="button" href="{{ url_for('new_protest') }}">File a protest</a></p>
+<div class="table-wrap"><table><thead><tr><th>Ref</th><th>Filed</th><th>Race</th><th>By</th><th>Against</th><th>Reason</th><th>Status</th><th>Decision</th></tr></thead>
+<tbody>{% for p in protests %}<tr><td>{{ p.year }}-{{ '%02d'|format(p.protest_seq) }}</td><td>{{ p.filed_at }}</td><td>{{ p.category }}, heat {{ p.heat_number }}</td><td>{{ p.filer }}</td><td>{{ p.against_pair }}</td><td>{{ p.description }}</td><td><span class="chip">{{ p.status }}</span></td><td>{{ p.decision or '' }}</td></tr>{% else %}<tr><td colspan="8">No protests have been filed.</td></tr>{% endfor %}</tbody></table></div>
+{% endblock %}

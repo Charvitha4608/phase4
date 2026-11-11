@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Competitors{% endblock %}
+{% block content %}
+<h1>Competitors</h1>
+<h2>Search athletes by last name</h2>
+<form class="inline" action="{{ url_for('competitors') }}" method="get">
+  <label>Last name contains <input type="search" name="q" value="{{ term }}" placeholder="Miettinen"></label>
+  <input type="hidden" name="series" value="{{ series }}"><button>Search</button>
+</form>
+{% if athletes is not none %}
+  {% if athletes %}<div class="table-wrap"><table><thead><tr><th>Name</th><th>Nationality</th><th>Races stored</th><th>Best rank</th></tr></thead>
+  <tbody>{% for a in athletes %}<tr><td>{{ a.name }}</td><td>{{ a.nationality or 'Not published' }}</td><td>{{ a.races }}</td><td>{{ a.best_rank or '–' }}</td></tr>{% endfor %}</tbody></table></div>
+  {% else %}<p class="flash error">No athlete's last name contains "{{ term }}".</p>{% endif %}
+{% endif %}
+<h2>Carriers in the {{ latest_year }} championship</h2>
+<form class="inline" action="{{ url_for('competitors') }}" method="get">
+  <label>Series <select name="series">{% for c in categories if c.cat_code != 'TEAM' %}<option value="{{ c.cat_code }}" {% if c.cat_code == series %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></label>
+  <input type="hidden" name="q" value="{{ term }}"><button>Show</button>
+</form>
+<div class="table-wrap"><table><thead><tr><th>Carrier</th><th>Country</th></tr></thead>
+<tbody>{% for c in carriers %}<tr><td>{{ c.carrier }}</td><td>{{ c.country }}</td></tr>{% endfor %}</tbody></table></div>
+<h2 id="registered">Registered for {{ next_year }}</h2>
+<div class="table-wrap"><table><thead><tr><th>Series</th><th>Bib</th><th>Carrier</th><th>Carried</th><th>Country</th></tr></thead>
+<tbody>{% for r in registered %}<tr><td>{{ r.series }}</td><td>{{ r.bib_number or '' }}</td><td>{{ r.carrier }}</td><td>{{ r.carried }}</td><td>{{ r.country }}</td></tr>{% endfor %}</tbody></table></div>
+<p class="actions"><a class="button" href="{{ url_for('register') }}">Register a pair</a></p>
+{% endblock %}

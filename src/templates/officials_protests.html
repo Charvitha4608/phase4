@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Decide protests{% endblock %}
+{% block content %}
+<h1>Decide protests</h1>
+{% for p in protests %}
+<article class="card"><p class="eyebrow">{{ p.year }}-{{ '%02d'|format(p.protest_seq) }} · {{ p.category }}, heat {{ p.heat_number }} · {{ p.status }}</p>
+<p><strong>{{ p.filer }}</strong> against <strong>{{ p.against_pair }}</strong><br>{{ p.description }}</p>
+<form class="stack" method="post"><input type="hidden" name="champ_id" value="{{ p.champ_id }}"><input type="hidden" name="protest_seq" value="{{ p.protest_seq }}">
+<label>Deciding official <select name="official" required><option value="">Choose</option>{% for o in officials %}<option value="{{ o.person_id }}">{{ o.name }} ({{ o.official_role }})</option>{% endfor %}</select></label>
+<label>Outcome <select name="outcome" required><option value="UPHELD">Uphold: disqualify the protested pair</option><option value="REJECTED">Reject</option></select></label>
+<label>Decision text <textarea name="decision_text" rows="2" required></textarea></label>
+<button>Record decision</button></form></article>
+{% else %}<p class="muted">No protests are waiting for a decision.</p>{% endfor %}
+<p><a href="{{ url_for('protests') }}">All protests</a></p>
+{% endblock %}

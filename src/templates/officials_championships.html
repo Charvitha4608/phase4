@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Delete a championship{% endblock %}
+{% block content %}
+<h1>Delete a championship</h1>
+<p class="muted">Only an edition with no heats, protests, registrations, team results, sponsors or accreditations can be deleted.</p>
+<div class="table-wrap"><table><thead><tr><th>Year</th><th>Edition</th><th>Heats</th><th>Protests</th><th>Registrations</th><th>Team results</th><th>Sponsors</th><th>Press</th><th>Delete</th></tr></thead>
+<tbody>{% for c in rows %}<tr><td>{{ c.year }}</td><td>{{ c.edition_number or 'Cancelled' }}</td><td>{{ c.heats }}</td><td>{{ c.protests }}</td><td>{{ c.registrations }}</td><td>{{ c.team_results }}</td><td>{{ c.sponsors }}</td><td>{{ c.accreditations }}</td>
+<td><form class="row-form" method="post"><input type="hidden" name="champ_id" value="{{ c.champ_id }}"><input name="deleted_by" aria-label="Your name" placeholder="Your name" required size="9"><input name="reason" aria-label="Reason" placeholder="Reason" required size="12"><button class="danger">Delete</button></form></td></tr>{% endfor %}</tbody></table></div>
+<h2>Deletion log</h2>
+<div class="table-wrap"><table><thead><tr><th>Year</th><th>Deleted by</th><th>When</th><th>Reason</th></tr></thead>
+<tbody>{% for l in log %}<tr><td>{{ l.year }}</td><td>{{ l.deleted_by }}</td><td>{{ l.deleted_at }}</td><td>{{ l.reason }}</td></tr>{% else %}<tr><td colspan="4">Nothing has been deleted.</td></tr>{% endfor %}</tbody></table></div>
+{% endblock %}

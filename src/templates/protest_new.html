@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}File a protest{% endblock %}
+{% block content %}
+<h1>File a protest</h1>
+<p class="muted">A protest must be filed within 15 minutes of the last finish in the heat. Fee: €150, non-refundable.</p>
+<form class="inline" method="get">
+  <label>Heat <select name="heat">{% for h in heats %}{% set v = h.champ_id ~ '|' ~ h.cat_code ~ '|' ~ h.heat_number %}<option value="{{ v }}" {% if heat and heat.champ_id == h.champ_id and heat.cat_code == h.cat_code and heat.heat_number == h.heat_number %}selected{% endif %}>{{ h.year }} {{ h.category }}, {{ 'final' if h.round == 'FINAL' else 'heat ' ~ h.heat_number }}</option>{% endfor %}</select></label>
+  <button>Choose heat</button>
+</form>
+{% if heat %}
+<p>Last finish in this heat: <strong>{{ heat.last_finish_at }}</strong></p>
+<form class="stack" method="post">
+  <input type="hidden" name="heat" value="{{ heat.champ_id }}|{{ heat.cat_code }}|{{ heat.heat_number }}">
+  <fieldset><legend>Protest</legend>
+  {% for field, label in [('filer', 'Protesting pair'), ('against', 'Protested pair')] %}
+  <label>{{ label }} <select name="{{ field }}" required><option value="">Choose</option>{% for e in entries %}{% set v = e.carrier_id ~ '-' ~ e.carried_id %}<option value="{{ v }}" {% if form.get(field) == v %}selected{% endif %}>{{ e.rank_in_heat or e.finish_status }}. {{ e.carrier }} / {{ e.carried }}</option>{% endfor %}</select></label>
+  {% endfor %}
+  <label>Filed at <input type="datetime-local" name="filed_at" value="{{ form.get('filed_at', default_time) }}" required></label>
+  <label>Reason <textarea name="description" rows="3" required>{{ form.get('description', '') }}</textarea></label>
+  </fieldset>
+  <button>File protest</button>
+</form>
+{% endif %}
+{% endblock %}

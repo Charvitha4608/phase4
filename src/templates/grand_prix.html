@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Official Grand Prix{% endblock %}
+{% block content %}
+<h1>Official Grand Prix</h1>
+<p class="muted">The Grand Prix series has events on four continents.</p>
+<div class="cards">
+  {% for region in ['Asia', 'Australia', 'Europe', 'North America'] %}
+  <article class="card"><p class="eyebrow">{{ region }}</p><h3>{{ next_year }} events to be announced</h3></article>
+  {% endfor %}
+</div>
+{% endblock %}

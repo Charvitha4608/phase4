@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="hero">
+  <p class="eyebrow">Sonkajärvi, Finland · 2–3 July {{ next_year }}</p>
+  <h1>The Wife Carrying World Championships</h1>
+  <p>253.5 metres of sand, a water obstacle and two dry obstacles. Registration for {{ next_year }} is open.</p>
+  <p class="actions"><a class="button" href="{{ url_for('register') }}">Register</a>
+  <a class="button ghost" href="{{ url_for('programme') }}">Programme</a></p>
+</section>
+<h2>{{ latest_year }} winners</h2>
+<div class="cards">
+  {% for w in winners %}
+  <article class="card"><p class="eyebrow">{{ w.series }}</p>
+    <h3>{{ w.carrier }} / {{ w.carried }}</h3>
+    <p>{{ w.country }} · <strong>{{ w.finish_time_ms|time }}</strong></p></article>
+  {% endfor %}
+</div>
+<p><a href="{{ url_for('results') }}">Full results</a> · <a href="{{ url_for('champions') }}">Champions and records</a></p>
+<h2>In cooperation with</h2>
+<ul class="chips">{% for p in partners %}<li>{{ p }}</li>{% endfor %}</ul>
+{% endblock %}

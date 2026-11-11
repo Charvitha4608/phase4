@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Champions and Records{% endblock %}
+{% block content %}
+<h1>Champions and Records</h1>
+<h2>World records</h2>
+<div class="cards">{% for r in records %}<article class="card"><p class="eyebrow">{{ r.series }}</p><h3>{{ r.finish_time_ms|time }}</h3><p>{{ r.holders }}, {{ r.year }}</p></article>{% endfor %}</div>
+<h2>Main Race medal table since 1996</h2>
+<p class="muted">The site publishes silver and bronze for {{ latest_year }} only, so earlier years count gold. A mixed-country pair counts once for each country.</p>
+<div class="table-wrap"><table>
+<thead><tr><th>#</th><th>Country</th><th>Gold</th><th>Silver</th><th>Bronze</th><th>Total</th></tr></thead>
+<tbody>{% for m in medals %}<tr><td>{{ loop.index }}</td><td>{{ m.country }}</td><td>{{ m.gold|int }}</td><td>{{ m.silver|int }}</td><td>{{ m.bronze|int }}</td><td>{{ m.total }}</td></tr>{% endfor %}</tbody>
+</table></div>
+<h2>Average finish time by championship</h2>
+<p class="muted">Times are published for {{ latest_year }} and for record-setting runs only. The fastest and tightest labels need at least two timed pairs.</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Year</th><th>Timed pairs</th><th>Average</th><th>Std. deviation</th><th></th></tr></thead>
+<tbody>{% for t in trend %}<tr><td>{{ t.year }}</td><td>{{ t.timed }}</td><td>{{ t.average_ms|time }}</td><td>{{ t.spread_ms|time }}</td><td>{% if t.is_fastest %}<span class="chip">Fastest average</span> {% endif %}{% if t.is_tightest %}<span class="chip">Tightest field</span>{% endif %}</td></tr>{% endfor %}</tbody>
+</table></div>
+<div class="two-col">
+<section><h2>World Championship gold</h2><table><tbody>{% for g in main_gold %}<tr><th>{{ g.year }}</th><td>{{ g.carrier }} / {{ g.carried }}<br><span class="muted">{{ g.country }}</span></td></tr>{% endfor %}</tbody></table></section>
+<section><h2>Sprint gold</h2><table><tbody>{% for g in sprint_gold %}<tr><th>{{ g.year }}</th><td>{{ g.carrier }} / {{ g.carried }}<br><span class="muted">{{ g.country }}</span></td></tr>{% endfor %}</tbody></table></section>
+</div>
+{% endblock %}

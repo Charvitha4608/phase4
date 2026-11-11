@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Wife Carrying World Championships{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header class="site-header">
+  <div class="wrap header-row">
+    <a class="brand" href="{{ url_for('home') }}">Wife Carrying<br><span>World Championships</span></a>
+    <nav aria-label="Main">
+      <a href="{{ url_for('programme') }}">Programme</a>
+      <div class="menu"><button type="button" aria-haspopup="true">Competitors</button>
+        <div class="submenu">
+          <a href="{{ url_for('register') }}">Register</a>
+          <a href="{{ url_for('competitors') }}">Registered Competitors</a>
+          <a href="{{ url_for('teams') }}">Teams</a>
+          <a href="{{ url_for('rules') }}">Track and Rules</a>
+          <a href="{{ url_for('grand_prix') }}">Official Grand Prix</a>
+          <a href="{{ url_for('protests') }}">Protests</a>
+        </div>
+      </div>
+      <div class="menu"><button type="button" aria-haspopup="true">Results</button>
+        <div class="submenu">
+          <a href="{{ url_for('results') }}">Results</a>
+          <a href="{{ url_for('champions') }}">Champions and Records</a>
+          <a href="{{ url_for('report_sprint_vs_main') }}">Sprint and Main Race</a>
+          <a href="{{ url_for('report_officials') }}">Officials Report</a>
+        </div>
+      </div>
+      <div class="menu"><button type="button" aria-haspopup="true">Contact</button>
+        <div class="submenu">
+          <a href="{{ url_for('contact') }}">Contact</a>
+          <a href="{{ url_for('press') }}">Media and Accreditation</a>
+        </div>
+      </div>
+      <a class="nav-officials" href="{{ url_for('officials') }}">Officials</a>
+    </nav>
+  </div>
+</header>
+<main class="wrap">
+  {% for category, message in get_flashed_messages(with_categories=true) %}
+    <p class="flash {{ category }}" role="status">{{ message }}</p>
+  {% endfor %}
+  {% block content %}{% endblock %}
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <p><strong>Sonkajärven Eukonkanto Oy</strong>, Lyseotie 1, 74300 Sonkajärvi, Finland</p>
+    <p>Course project modelled on eukonkanto.fi. Not the official site.</p>
+  </div>
+</footer>
+</body>
+</html>

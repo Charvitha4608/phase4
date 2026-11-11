@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Change a carrier{% endblock %}
+{% block content %}
+<h1>Change a carrier</h1>
+<p>{{ entry.year }} {{ entry.series }}, bib {{ entry.bib_number or 'not assigned' }}: <strong>{{ entry.carrier }}</strong> carrying {{ entry.carried }}.</p>
+<p class="muted">{{ entry.carrier }} becomes the carried competitor of a new pair. Results of the old pair in this championship stay visible but leave the medal table.</p>
+<form class="stack" method="post"><fieldset><legend>New pair</legend>
+<label>New carrier <select name="new_carrier" required><option value="">Choose</option>{% for c in candidates %}<option value="{{ c.person_id }}">{{ c.name }}</option>{% endfor %}</select></label>
+<label>New bib <input type="number" min="1" name="new_bib" value="{{ next_bib }}" required></label>
+</fieldset><button>Replace pair</button></form>
+{% endblock %}

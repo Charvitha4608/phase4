@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Officials{% endblock %}
+{% block content %}
+<h1>Officials' area</h1>
+<div class="cards">
+<a class="card link" href="{{ url_for('officials_results') }}"><h3>Correct a finish time</h3><p>Fix a timing error and recalculate the heat.</p></a>
+<a class="card link" href="{{ url_for('officials_registrations') }}"><h3>Change a carrier</h3><p>Replace an injured carrier and rebuild the pair.</p></a>
+<a class="card link" href="{{ url_for('officials_protests') }}"><h3>Decide protests</h3><p>Record the jury's decision on a protest.</p></a>
+<a class="card link" href="{{ url_for('officials_championships') }}"><h3>Delete a championship</h3><p>Remove a cancelled edition that has no records.</p></a>
+<a class="card link" href="{{ url_for('report_sprint_vs_main') }}"><h3>Sprint and Main Race report</h3><p>Pairs who ran both, and their rank differential.</p></a>
+<a class="card link" href="{{ url_for('report_officials') }}"><h3>Officials report</h3><p>Officials with the most assignments.</p></a>
+</div>
+{% endblock %}

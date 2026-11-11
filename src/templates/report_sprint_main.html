@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}Sprint and Main Race{% endblock %}
+{% block content %}
+<h1>Pairs in both Sprint and Main Race</h1>
+<p class="muted">Since 2015. A negative differential means the pair did better in the Main Race than in the Sprint.</p>
+<div class="table-wrap"><table><thead><tr><th>Year</th><th>Pair</th><th>Sprint rank</th><th>Main rank</th><th>Differential</th></tr></thead>
+<tbody>{% for r in rows %}<tr><td>{{ r.year }}</td><td>{{ r.carrier }} / {{ r.carried }}</td><td>{{ r.sprint_rank }}</td><td>{{ r.main_rank }}</td><td>{{ r.differential }}</td></tr>{% endfor %}</tbody></table></div>
+{% endblock %}
