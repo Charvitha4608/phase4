@@ -196,4 +196,4 @@ eq$ carried), C2 (carried age $\ge 17$), C1 (new carrier age $\ge 18$), and C10.
 
 Generative AI (Claude) was used to extract website data and to have a rough idea about the schema, queries, application and this README, as the course permits. The team reviewed the results.
 
-video submission- https://drive.google.com/drive/folders/1uEEAo--UCmdENPlF1hb4td-5OQrSd_oO?usp=drive_link
+video submission- https://drive.google.com/drive/folders/1uEEAo--UCmdENPlF1hb4td-5OQrSd_oO?usp=sharing
