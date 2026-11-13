@@ -1,4 +1,4 @@
-:root { --navy:#66BB6A; --navy-dark:#43A047; --sky:#C8E6C9; --ink:#1d2433; --muted:#5b6579; --line:#d9e0ea; --bg:#f6f8fb; --card:#fff; --err:#a32020; --err-bg:#fdecec; --ok:#1a6b3c; --ok-bg:#e6f5ec; --warn:#7a5200; --warn-bg:#fff2d6; }
+:root { --navy:#223c76; --sky:#82ddf0; --ink:#1d2433; --muted:#5b6579; --line:#d9e0ea; --bg:#f6f8fb; --card:#fff; --err:#a32020; --err-bg:#fdecec; --ok:#1a6b3c; --ok-bg:#e6f5ec; --warn:#7a5200; --warn-bg:#fff2d6; }
 * { box-sizing:border-box; }
 html { height:100%; }
 /* Sticky footer: the page is a column at least as tall as the viewport and
@@ -26,9 +26,9 @@ nav a { color:#fff; text-decoration:none; }
 .submenu { display:none; position:absolute; left:0; top:100%; z-index:10; min-width:220px; padding:6px 0; background:#fff; border:1px solid var(--line); border-radius:6px; box-shadow:0 8px 20px rgba(20,30,60,.18); }
 .menu:hover .submenu, .menu:focus-within .submenu { display:block; }
 .site-header nav .submenu a { display:block; padding:6px 14px; color:var(--navy); }
-.site-header nav .submenu a:hover { background:#e8f5e9; color:var(--navy); }
+.site-header nav .submenu a:hover { background:#eaf0f8; color:var(--navy); }
 @media (max-width:640px) { .submenu { position:fixed; left:16px; right:16px; top:auto; } }
-.hero { background:linear-gradient(120deg,var(--navy),var(--navy-dark)); color:#fff; padding:44px 28px; border-radius:10px; }
+.hero { background:linear-gradient(120deg,var(--navy),#2f5aa8); color:#fff; padding:44px 28px; border-radius:10px; }
 .hero h1 { color:#fff; font-size:2.4rem; max-width:18em; }
 .eyebrow { font-size:.8rem; text-transform:uppercase; letter-spacing:.06em; margin:0 0 .3em; color:var(--muted); font-weight:700; }
 .hero .eyebrow { color:var(--sky); }
@@ -46,7 +46,7 @@ button.danger { background:var(--err); }
 .table-wrap { overflow-x:auto; background:var(--card); border:1px solid var(--line); border-radius:8px; }
 table { width:100%; border-collapse:collapse; background:var(--card); font-size:.95rem; }
 th,td { padding:8px 12px; text-align:left; border-bottom:1px solid var(--line); vertical-align:top; }
-thead th { background:#e8f5e9; color:var(--navy); white-space:nowrap; }
+thead th { background:#eaf0f8; color:var(--navy); white-space:nowrap; }
 tbody tr:last-child th, tbody tr:last-child td { border-bottom:0; }
 .muted { color:var(--muted); }
 .flash { padding:10px 14px; border-radius:6px; }
@@ -56,7 +56,7 @@ tbody tr:last-child th, tbody tr:last-child td { border-bottom:0; }
 .tabs a { text-decoration:none; padding:6px 12px; border-radius:6px; border:1px solid var(--line); background:var(--card); color:var(--navy); }
 .tabs a.active { background:var(--navy); color:#fff; border-color:var(--navy); }
 .chips { list-style:none; display:flex; flex-wrap:wrap; gap:8px; padding:0; }
-.chips li, .chip { display:inline-block; background:#e8f5e9; color:var(--navy); border-radius:999px; padding:2px 10px; font-size:.85rem; }
+.chips li, .chip { display:inline-block; background:#e8eef7; color:var(--navy); border-radius:999px; padding:2px 10px; font-size:.85rem; }
 .chip.warn { background:var(--warn-bg); color:var(--warn); }
 .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin:12px 0; }
 .stats div { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:10px 14px; }
@@ -72,9 +72,9 @@ input,select,textarea { font:inherit; padding:7px 9px; border:1px solid #b9c3d3;
 .row-form { display:flex; gap:6px; flex-wrap:nowrap; }
 .row-form button { padding:6px 10px; }
 .two-col { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:18px; }
-.site-footer { margin-top:auto; background:#1b381e; color:#c8e6c9; padding:28px 0; font-size:.88rem; }
+.site-footer { margin-top:auto; background:#18294f; color:#c8d3e8; padding:28px 0; font-size:.88rem; }
 .site-footer p { margin:.2em 0; }
 .row-form input { width:7em; min-width:0; }
 .row-form input[name="reason"] { width:9em; }
-tbody tr.fee-current td { background:#e8f5e9; }
+tbody tr.fee-current td { background:#eaf0f8; }
 tbody tr.fee-current td:first-child { box-shadow:inset 3px 0 0 var(--navy); }
