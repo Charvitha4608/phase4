@@ -46,9 +46,7 @@ def _find_or_create_competitor(cur, person):
                     (person["first_name"], person["last_name"], person["email"], person["gender"],
                      person["date_of_birth"], person["country"]))
         person_id = cur.lastrowid
-    cur.execute("""
-        INSERT INTO COMPETITOR (person_id, weight_kg) VALUES (%s, %s)
-        ON DUPLICATE KEY UPDATE weight_kg = VALUES(weight_kg)""", (person_id, person["weight_kg"]))
+    cur.execute("INSERT IGNORE INTO COMPETITOR (person_id) VALUES (%s)", (person_id,))
     if person.get("phone"):
         cur.execute("""
             INSERT INTO PERSON_PHONE (person_id, phone_number) VALUES (%s, %s)
@@ -57,7 +55,11 @@ def _find_or_create_competitor(cur, person):
 
 
 def register_pair(champ_id, cat_code, bib_number, carrier, carried):
-    """I-1: register a pair. Returns the backpack weight set by the trigger."""
+    """I-1: register a pair. Returns the backpack weight set by the trigger.
+
+    Weigh-ins are stored on the registration, not on the person, so each
+    championship keeps its own weights (DC-1, DC-2).
+    """
     with transaction() as cur:
         carrier_id = _find_or_create_competitor(cur, carrier)
         carried_id = _find_or_create_competitor(cur, carried)
@@ -69,9 +71,11 @@ def register_pair(champ_id, cat_code, bib_number, carrier, carried):
                 INSERT INTO REPRESENTS (carrier_id, carried_id, country_code) VALUES (%s, %s, %s)
                 ON DUPLICATE KEY UPDATE country_code = VALUES(country_code)""", (carrier_id, carried_id, code))
         cur.execute("""
-            INSERT INTO REGISTRATION (champ_id, cat_code, carrier_id, carried_id, bib_number, fee_paid, status, registered_at)
-            VALUES (%s, %s, %s, %s, %s, 55, 'CONFIRMED', NOW())""",
-                    (champ_id, cat_code, carrier_id, carried_id, bib_number))
+            INSERT INTO REGISTRATION (champ_id, cat_code, carrier_id, carried_id, bib_number,
+                                      carrier_weigh_in_kg, carried_weigh_in_kg, fee_paid, status, registered_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, 55, 'CONFIRMED', NOW())""",
+                    (champ_id, cat_code, carrier_id, carried_id, bib_number,
+                     carrier["weight_kg"], carried["weight_kg"]))
         cur.execute("""
             SELECT backpack_weight_kg FROM REGISTRATION
              WHERE champ_id = %s AND cat_code = %s AND carrier_id = %s AND carried_id = %s""",
@@ -127,7 +131,7 @@ def change_carrier(champ_id, cat_code, carrier_id, carried_id, new_carrier_id, n
     """U-2: the registered carrier becomes the carried competitor of a new pair."""
     with transaction() as cur:
         cur.execute("""
-            SELECT fee_paid, status FROM REGISTRATION
+            SELECT fee_paid, status, carrier_weigh_in_kg FROM REGISTRATION
              WHERE champ_id = %s AND cat_code = %s AND carrier_id = %s AND carried_id = %s FOR UPDATE""",
                     (champ_id, cat_code, carrier_id, carried_id))
         old = cur.fetchone()
@@ -150,11 +154,14 @@ def change_carrier(champ_id, cat_code, carrier_id, carried_id, new_carrier_id, n
             UPDATE REGISTRATION SET status = 'REPLACED'
              WHERE champ_id = %s AND cat_code = %s AND carrier_id = %s AND carried_id = %s""",
                     (champ_id, cat_code, carrier_id, carried_id))
-        # The insert trigger re-checks age (C1, C2) and sets the backpack weight (C3).
+        # The old carrier is now carried, so their weigh-in moves with them. The
+        # insert trigger re-checks age (C1, C2) and sets the backpack weight (C3).
         cur.execute("""
-            INSERT INTO REGISTRATION (champ_id, cat_code, carrier_id, carried_id, bib_number, fee_paid, status, registered_at)
-            VALUES (%s, %s, %s, %s, %s, %s, 'CONFIRMED', NOW())""",
-                    (champ_id, cat_code, new_carrier_id, carrier_id, new_bib, old["fee_paid"]))
+            INSERT INTO REGISTRATION (champ_id, cat_code, carrier_id, carried_id, bib_number,
+                                      carried_weigh_in_kg, fee_paid, status, registered_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, 'CONFIRMED', NOW())""",
+                    (champ_id, cat_code, new_carrier_id, carrier_id, new_bib,
+                     old["carrier_weigh_in_kg"], old["fee_paid"]))
         cur.execute("""
             UPDATE RACE_RESULT SET composition_changed = TRUE
              WHERE champ_id = %s AND carrier_id = %s AND carried_id = %s""",

@@ -70,13 +70,14 @@ def to_int(value, label, minimum=None, maximum=None):
     return number
 
 
-def to_decimal(value, label):
+def to_weight(value, label):
+    """Event weigh-in in kg. Same bounds as chk_reg_weigh_in in schema.sql."""
     try:
         number = float(str(value).strip())
     except (TypeError, ValueError):
         raise FormError(f"{label} must be a number.")
-    if not 0 < number < 400:
-        raise FormError(f"{label} is out of range.")
+    if not 20 <= number <= 300:
+        raise FormError(f"{label} must be between 20 and 300 kg.")
     return number
 
 
@@ -118,6 +119,17 @@ def to_heat(value):
     return int(match[1]), match[2], int(match[3])
 
 
+CHECK_MESSAGES = {
+    "chk_pair_distinct": "The carrier and the carried competitor must be two different people.",
+    "chk_reg_fee": "A registration fee must be €55 (individual) or €160 (team).",
+    "chk_protest_fee": "The protest fee must be exactly €150.",
+    "chk_reg_weigh_in": "A weigh-in must be between 20 and 300 kg.",
+    "chk_reg_backpack": "A backpack weight must be between 0 and 49 kg.",
+    "chk_reg_refund": "A refund cannot be negative.",
+    "chk_reg_cancelled": "Only a cancelled registration can have a cancellation time.",
+}
+
+
 def database_message(error):
     """Turn a MySQL error into a sentence for the user."""
     code = error.args[0] if error.args else 0
@@ -131,13 +143,14 @@ def database_message(error):
             return "This pair is already registered in this series."
         return f"That record already exists: {detail}"
     if code == 1451:
-        return ("This championship cannot be deleted: heats, protests, registrations, team results, "
-                "sponsors or accreditations still refer to it. Archive it instead.")
+        return ("This championship cannot be deleted: heats, protests, registrations, team rosters, "
+                "team results, sponsors or accreditations still refer to it. Archive it instead.")
     if code == 1452:
         return "A referenced record does not exist."
-    if code == 3819:
-        if "chk_pair_distinct" in detail:
-            return "The carrier and the carried competitor must be two different people."
+    if code == 3819:     # CHECK constraint
+        for name, text in CHECK_MESSAGES.items():
+            if name in detail:
+                return text
         return f"The data breaks a database rule: {detail}"
     if code in (2002, 2003):
         return "The database server cannot be reached. Check that MySQL is running."
@@ -262,7 +275,7 @@ def person_from_form(form, prefix, label):
         "gender": form.get(f"{prefix}_gender") if form.get(f"{prefix}_gender") in ("F", "M", "X") else None,
         "date_of_birth": to_date(required(form, f"{prefix}_dob", f"{label} date of birth"), f"{label} date of birth"),
         "country": required(form, f"{prefix}_country", f"{label} country"),
-        "weight_kg": to_decimal(required(form, f"{prefix}_weight", f"{label} weight"), f"{label} weight"),
+        "weight_kg": to_weight(required(form, f"{prefix}_weight", f"{label} weight"), f"{label} weight"),
         "phone": form.get(f"{prefix}_phone", "").strip() or None,
     }
 
@@ -315,7 +328,7 @@ def new_protest():
             if run_write(action, lambda seq: f"Protest {heat['year']}-{seq:02d} filed. Fee paid: €150 (non-refundable)."):
                 return redirect(url_for("protests"))
     entries = queries.heat_entries(*selected) if heat else []
-    default_time = (heat["last_finish_at"] + timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M") if heat else ""
+    default_time = (heat["heat_completed_at"] + timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M") if heat else ""
     return render_template("protest_new.html", heats=heats, heat=heat, entries=entries,
                            default_time=default_time, form=request.form)
 

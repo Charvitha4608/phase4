@@ -20,7 +20,7 @@ def like_pattern(text):
 def race_results(year, cat_code):
     """3.1.1 Selection: every result of a championship category."""
     sql = f"""
-        SELECT rh.heat_number, rh.round, reg.bib_number,
+        SELECT rh.heat_number, rh.round_type, reg.bib_number, rk.rank_in_category,
                CONCAT_WS(' ', ca.first_name, ca.last_name) AS carrier,
                CONCAT_WS(' ', cr.first_name, cr.last_name) AS carried,
                {COUNTRY_OF_PAIR} AS country,
@@ -41,6 +41,8 @@ def race_results(year, cat_code):
           JOIN PERSON cr ON cr.person_id = rr.carried_id
           LEFT JOIN REGISTRATION reg ON reg.champ_id = rr.champ_id AND reg.cat_code = rr.cat_code
                                     AND reg.carrier_id = rr.carrier_id AND reg.carried_id = rr.carried_id
+          LEFT JOIN CATEGORY_RANKING rk ON rk.champ_id = rr.champ_id AND rk.cat_code = rr.cat_code
+                                       AND rk.carrier_id = rr.carrier_id AND rk.carried_id = rr.carried_id
          WHERE ch.year = %s AND rr.cat_code = %s
          ORDER BY rh.heat_number, rr.rank_in_heat IS NULL, rr.rank_in_heat, reg.bib_number"""
     return fetch_all(sql, (year, cat_code))
@@ -62,20 +64,21 @@ def race_statistics(year, cat_code):
 
 
 def team_results(year):
-    """The Team series, which has its own results table."""
+    """The Team series: results and that year's roster (three carriers, one carried)."""
     sql = """
-        SELECT tr.rank_in_race, tr.bib_number, t.name AS team, co.name AS country,
+        SELECT tr.heat_number, tr.rank_in_heat, tr.bib_number, t.name AS team, co.name AS country,
                tr.finish_time_ms, tr.diff_to_leader_ms, tr.penalty_ms, tr.finish_status,
-               (SELECT GROUP_CONCAT(CONCAT_WS(' ', p.first_name, p.last_name)
-                                    ORDER BY p.last_name SEPARATOR ', ')
-                  FROM COMPETES_FOR cf JOIN PERSON p ON p.person_id = cf.competitor_id
-                 WHERE cf.team_id = t.team_id) AS members
+               (SELECT GROUP_CONCAT(CONCAT(CONCAT_WS(' ', p.first_name, p.last_name),
+                                           IF(ro.team_role = 'CARRIED', ' (carried)', ''))
+                                    ORDER BY ro.team_role = 'CARRIED', p.last_name SEPARATOR ', ')
+                  FROM TEAM_ROSTER ro JOIN PERSON p ON p.person_id = ro.competitor_id
+                 WHERE ro.champ_id = tr.champ_id AND ro.team_id = tr.team_id) AS members
           FROM TEAM_RESULT tr
           JOIN CHAMPIONSHIP ch ON ch.champ_id = tr.champ_id
           JOIN TEAM t ON t.team_id = tr.team_id
           LEFT JOIN COUNTRY co ON co.country_code = t.home_country_code
-         WHERE ch.year = %s
-         ORDER BY tr.rank_in_race IS NULL, tr.rank_in_race, t.name"""
+         WHERE ch.year = %s AND tr.cat_code = 'TEAM'
+         ORDER BY tr.heat_number, tr.rank_in_heat IS NULL, tr.rank_in_heat, t.name"""
     return fetch_all(sql, (year,))
 
 
@@ -109,7 +112,7 @@ def winners_of_year(year):
                            AND rh.heat_number = rr.heat_number
           JOIN PERSON ca ON ca.person_id = rr.carrier_id
           JOIN PERSON cr ON cr.person_id = rr.carried_id
-         WHERE ch.year = %s AND rh.round = 'FINAL' AND rr.rank_in_heat = 1
+         WHERE ch.year = %s AND rh.round_type = 'FINAL' AND rr.rank_in_heat = 1
          ORDER BY FIELD(rr.cat_code, 'MAIN', 'WOMEN', 'M40', 'SPRINT')"""
     return fetch_all(sql, (year,))
 
@@ -148,8 +151,8 @@ def search_athletes(term):
         SELECT CONCAT_WS(' ', p.first_name, p.last_name) AS name, co.name AS nationality,
                (SELECT COUNT(*) FROM RACE_RESULT rr
                  WHERE rr.carrier_id = p.person_id OR rr.carried_id = p.person_id) AS races,
-               (SELECT MIN(rr.rank_in_heat) FROM RACE_RESULT rr
-                 WHERE rr.carrier_id = p.person_id OR rr.carried_id = p.person_id) AS best_rank
+               (SELECT MIN(cr.rank_in_category) FROM CATEGORY_RANKING cr
+                 WHERE cr.carrier_id = p.person_id OR cr.carried_id = p.person_id) AS best_rank
           FROM PERSON p
           JOIN COMPETITOR c ON c.person_id = p.person_id
           LEFT JOIN COUNTRY co ON co.country_code = p.nationality_code
@@ -162,9 +165,10 @@ def search_teams(term):
     """3.1.5 Search: teams whose name contains the term."""
     sql = """
         SELECT t.name, co.name AS home_country,
-               (SELECT COUNT(*) FROM COMPETES_FOR cf WHERE cf.team_id = t.team_id) AS listed_members,
+               (SELECT COUNT(DISTINCT ro.competitor_id) FROM TEAM_ROSTER ro
+                 WHERE ro.team_id = t.team_id) AS listed_members,
                (SELECT COUNT(*) FROM TEAM_RESULT tr WHERE tr.team_id = t.team_id) AS races,
-               (SELECT COUNT(*) FROM TEAM_RESULT tr WHERE tr.team_id = t.team_id AND tr.rank_in_race = 1) AS wins
+               (SELECT COUNT(*) FROM TEAM_RESULT tr WHERE tr.team_id = t.team_id AND tr.rank_in_heat = 1) AS wins
           FROM TEAM t
           LEFT JOIN COUNTRY co ON co.country_code = t.home_country_code
          WHERE t.name LIKE %s
@@ -210,7 +214,7 @@ def medal_table():
           JOIN CHAMPIONSHIP ch ON ch.champ_id = rr.champ_id
           JOIN REPRESENTS rp ON rp.carrier_id = rr.carrier_id AND rp.carried_id = rr.carried_id
           JOIN COUNTRY co ON co.country_code = rp.country_code
-         WHERE rr.cat_code = 'MAIN' AND rh.round = 'FINAL' AND ch.year >= 1996
+         WHERE rr.cat_code = 'MAIN' AND rh.round_type = 'FINAL' AND ch.year >= 1996
            AND rr.finish_status = 'COMPLETED' AND rr.composition_changed = FALSE
            AND rr.rank_in_heat BETWEEN 1 AND 3
          GROUP BY co.country_code, co.name
@@ -221,29 +225,17 @@ def medal_table():
 def sprint_vs_main():
     """3.2.2 Pairs in both Sprint and Main Race of one championship, since 2015.
 
-    A pair's Sprint rank comes from the final if it reached the final, and
-    otherwise from its heat time behind all finalists.
+    Both ranks are rank_in_category from the CATEGORY_RANKING view: a Sprint
+    pair's place comes from the final if it reached the final, and otherwise
+    from its qualifying time behind all finalists.
     """
     sql = """
-        WITH best_sprint_run AS (
-            SELECT rr.carrier_id, rr.carried_id, rr.champ_id, rh.round, rr.finish_time_ms,
-                   ROW_NUMBER() OVER (PARTITION BY rr.champ_id, rr.carrier_id, rr.carried_id
-                                      ORDER BY rh.round = 'FINAL' DESC, rr.finish_time_ms) AS run_order
-              FROM RACE_RESULT rr
-              JOIN RACE_HEAT rh ON rh.champ_id = rr.champ_id AND rh.cat_code = rr.cat_code
-                               AND rh.heat_number = rr.heat_number
-             WHERE rr.cat_code = 'SPRINT' AND rr.finish_status = 'COMPLETED'
-        ), sprint AS (
-            SELECT carrier_id, carried_id, champ_id,
-                   RANK() OVER (PARTITION BY champ_id
-                                ORDER BY round = 'FINAL' DESC, finish_time_ms) AS sprint_rank
-              FROM best_sprint_run WHERE run_order = 1
+        WITH sprint AS (
+            SELECT carrier_id, carried_id, champ_id, rank_in_category AS sprint_rank
+              FROM CATEGORY_RANKING WHERE cat_code = 'SPRINT'
         ), main_race AS (
-            SELECT rr.carrier_id, rr.carried_id, rr.champ_id, rr.rank_in_heat AS main_rank
-              FROM RACE_RESULT rr
-              JOIN RACE_HEAT rh ON rh.champ_id = rr.champ_id AND rh.cat_code = rr.cat_code
-                               AND rh.heat_number = rr.heat_number
-             WHERE rr.cat_code = 'MAIN' AND rh.round = 'FINAL' AND rr.finish_status = 'COMPLETED'
+            SELECT carrier_id, carried_id, champ_id, rank_in_category AS main_rank
+              FROM CATEGORY_RANKING WHERE cat_code = 'MAIN'
         )
         SELECT ch.year, CONCAT_WS(' ', ca.first_name, ca.last_name) AS carrier,
                CONCAT_WS(' ', cr.first_name, cr.last_name) AS carried,
@@ -291,7 +283,7 @@ def finish_time_trend():
               JOIN RACE_RESULT rr ON rr.champ_id = ch.champ_id
               JOIN RACE_HEAT rh ON rh.champ_id = rr.champ_id AND rh.cat_code = rr.cat_code
                                AND rh.heat_number = rr.heat_number
-             WHERE rr.cat_code = 'MAIN' AND rh.round = 'FINAL'
+             WHERE rr.cat_code = 'MAIN' AND rh.round_type = 'FINAL'
                AND rr.finish_status = 'COMPLETED' AND ch.year >= 1996
              GROUP BY ch.year
         )
@@ -344,7 +336,7 @@ def gold_medalists(cat_code):
           JOIN CHAMPIONSHIP ch ON ch.champ_id = rr.champ_id
           JOIN PERSON ca ON ca.person_id = rr.carrier_id
           JOIN PERSON cr ON cr.person_id = rr.carried_id
-         WHERE rr.cat_code = %s AND rh.round = 'FINAL' AND rr.rank_in_heat = 1
+         WHERE rr.cat_code = %s AND rh.round_type = 'FINAL' AND rr.rank_in_heat = 1
            AND rr.finish_status = 'COMPLETED'
          ORDER BY ch.year DESC, carrier"""
     return fetch_all(sql, (cat_code,))
@@ -369,24 +361,24 @@ def categories_of_championship(year):
 
 
 def protestable_heats():
-    sql = """SELECT rh.champ_id, rh.cat_code, rh.heat_number, rh.round, rh.last_finish_at, ch.year,
+    sql = """SELECT rh.champ_id, rh.cat_code, rh.heat_number, rh.round_type, rh.heat_completed_at, ch.year,
                     cat.name AS category
                FROM RACE_HEAT rh
                JOIN CHAMPIONSHIP ch ON ch.champ_id = rh.champ_id
                JOIN RACE_CATEGORY cat ON cat.cat_code = rh.cat_code
-              WHERE rh.last_finish_at IS NOT NULL
+              WHERE rh.heat_completed_at IS NOT NULL
               ORDER BY ch.year DESC, FIELD(rh.cat_code, 'MAIN', 'WOMEN', 'M40', 'SPRINT'), rh.heat_number"""
     return fetch_all(sql)
 
 
 def protestable_heat(champ_id, cat_code, heat_number):
-    sql = """SELECT rh.champ_id, rh.cat_code, rh.heat_number, rh.round, rh.last_finish_at, ch.year,
+    sql = """SELECT rh.champ_id, rh.cat_code, rh.heat_number, rh.round_type, rh.heat_completed_at, ch.year,
                     cat.name AS category
                FROM RACE_HEAT rh
                JOIN CHAMPIONSHIP ch ON ch.champ_id = rh.champ_id
                JOIN RACE_CATEGORY cat ON cat.cat_code = rh.cat_code
               WHERE rh.champ_id = %s AND rh.cat_code = %s AND rh.heat_number = %s
-                AND rh.last_finish_at IS NOT NULL"""
+                AND rh.heat_completed_at IS NOT NULL"""
     return fetch_one(sql, (champ_id, cat_code, heat_number))
 
 
@@ -440,7 +432,7 @@ def jury_officials():
 def registrations_for_year(year):
     sql = """
         SELECT reg.champ_id, reg.cat_code, reg.carrier_id, reg.carried_id, reg.bib_number, reg.status,
-               reg.backpack_weight_kg, cat.name AS series,
+               reg.carrier_weigh_in_kg, reg.carried_weigh_in_kg, reg.backpack_weight_kg, cat.name AS series,
                CONCAT_WS(' ', ca.first_name, ca.last_name) AS carrier,
                CONCAT_WS(' ', cr.first_name, cr.last_name) AS carried
           FROM REGISTRATION reg
@@ -493,7 +485,8 @@ def championships_overview():
                (SELECT COUNT(*) FROM SPONSORS x WHERE x.champ_id = ch.champ_id) AS sponsors,
                (SELECT COUNT(*) FROM ACCREDITS x WHERE x.champ_id = ch.champ_id) AS accreditations,
                (SELECT COUNT(*) FROM REGISTRATION x WHERE x.champ_id = ch.champ_id) AS registrations,
-               (SELECT COUNT(*) FROM TEAM_RESULT x WHERE x.champ_id = ch.champ_id) AS team_results
+               (SELECT COUNT(*) FROM TEAM_RESULT x WHERE x.champ_id = ch.champ_id) AS team_results,
+               (SELECT COUNT(*) FROM TEAM_ROSTER x WHERE x.champ_id = ch.champ_id) AS team_roster
           FROM CHAMPIONSHIP ch ORDER BY ch.year DESC"""
     return fetch_all(sql)
 

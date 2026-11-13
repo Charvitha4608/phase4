@@ -37,50 +37,57 @@ Open <http://localhost:5000>. Optional settings are `DB_HOST`, `DB_PORT` and `DB
 
 ## Design Changes
 
-Phase 2 was done by **Team 37** and Phase 3 by **Team 28**. The baseline is Team 28's schema, whose 26 relations are all kept. Each change below is marked with its `DC-n` number in `src/schema.sql`.
+Phase 2 was done by **Team 37** and Phase 3 by **Team 28**. The baseline is Team 28's schema of 26 relations. One of them, `COMPETES_FOR`, is replaced by `TEAM_ROSTER` (DC-12). Four more tables and one view are added, giving 30 tables. Each change below is marked with its `DC-n` number in `src/schema.sql`.
 
 | # | Change | Reason |
 |---|---|---|
-| DC-1 | Added `REGISTRATION` (championship, category, pair, bib, backpack weight, fee, status, refund) | Phase 1 needs registrations for I-1, C4, C6, C7 and C15, and they were lost in Phase 2. |
-| DC-2 | Removed `bib_number` and `role` from `COMPETITOR` | A bib belongs to one entry, and the 2026 results show the same person as carrier in one pair and carried in another. Role comes from `PAIR`. |
-| DC-3 | Added `RACE_HEAT.round` (HEAT or FINAL) | The Sprint has heats and a final, and ranking them together counts a pair twice. |
-| DC-4 | Added `TEAM_RESULT` | A team race has four people, so `RACE_RESULT`, which belongs to a pair, cannot store it. |
-| DC-5 | Added `RACE_HEAT.last_finish_at` | C5 needs a clock time, and `finish_time_ms` is an elapsed duration. |
+| DC-1 | Added `REGISTRATION`: one pair's entry in one championship category, with bib, carrier and carried weigh-ins, backpack weight, fee, status, cancellation time and refund | Phase 1 needs event-scoped registrations for I-1, U-2, C3, C4, C6, C7 and C15, and they were lost in Phase 2. Keeping them per championship preserves each year's bib and weigh-in. |
+| DC-2 | Removed `bib_number`, `role` and `weight_kg` from `COMPETITOR` | All three belong to one event, not to the person. Bib and weigh-ins moved to `REGISTRATION`, and role comes from `PAIR` or `TEAM_ROSTER`. The 2026 results show the same person as carrier in one pair and carried in another. |
+| DC-3 | Added `RACE_HEAT.round_type` (QUALIFYING or FINAL) | The Sprint has qualifying heats and a final. Ranking them together counts a pair twice, and U-1 must tell them apart. |
+| DC-4 | Added `TEAM_PARTICIPATES_IN` and `TEAM_RESULT`, keyed by heat like `PARTICIPATES_IN` and `RACE_RESULT` | A team race has four people, so the pair tables cannot store it. |
+| DC-5 | Added `RACE_HEAT.heat_completed_at` | C5 needs a clock time, and `finish_time_ms` is an elapsed duration. |
 | DC-6 | Added `RACE_RESULT.composition_changed` | U-2 must keep the results visible while removing them from the medal table. |
 | DC-7 | `RACE_RESULT.finish_time_ms` and `drop_count` allow NULL | Non-starters have no time, past winners have no published time, and the site does not publish drops. |
 | DC-8 | Added `CHAMPIONSHIP_DELETION_LOG` | D-1 requires an audit record of each deletion. |
-| DC-9 | `PERSON.last_name`, `email`, `date_of_birth`, `nationality_code` and `COMPETITOR.weight_kg` allow NULL | The site does not publish these and some names are single words. The registration form requires them for new entries. |
-| DC-10 | Removed the maximum of two countries in `REPRESENTS` | Bib 21 in the 2026 Main Series represents three countries. |
+| DC-9 | `PERSON.last_name`, `email`, `date_of_birth`, `nationality_code` and the `REGISTRATION` weigh-ins allow NULL | The site does not publish these and some names are single words. The registration form requires them for new entries. |
+| DC-10 | `REPRESENTS` allows any number of countries per pair | Bib 21 in the 2026 Main Series represents three countries. A mixed pair's medal counts once for each country it represents. |
 | DC-11 | Added foreign keys `RACE_RESULT` to `PARTICIPATES_IN`, and `JUDGES` and `RACE_HEAT` to `HAS_CATEGORY` | They enforce three rules Team 37 list as notational deviations, without triggers. |
+| DC-12 | Replaced `COMPETES_FOR` with `TEAM_ROSTER` (championship, team, competitor, role) | Team line-ups change between years. Andrew Lee and Devon Lee raced for Team Beer for my Horses in 2026 and are registered for Team USA in 2027. The role is needed for C10. |
+| DC-13 | Added view `CATEGORY_RANKING`, which derives `rank_in_category` with `RANK() OVER (PARTITION BY champ_id, cat_code ...)` | Phase 1 has `rank_in_category`. Storing it would go out of date after U-1 and U-3, so it is computed on read. A Sprint pair ranks by the final if it reached it, otherwise by its qualifying time. |
 
 ## Constraint enforcement
 
 | Rule | Where it is enforced |
 |---|---|
-| C1, C2 minimum ages; C3 backpack weight | Trigger `trg_registration_rules` |
+| C1, C2 minimum ages | Trigger `trg_registration_rules` |
+| C3 backpack weight | Trigger `trg_registration_rules` sets it from the carried weigh-in. `CHECK` keeps it between 0 and 49 kg |
 | C4 unique bib per championship and category | `UNIQUE` on `REGISTRATION` |
-| C5 15-minute protest window; C13 both pairs in the heat | Trigger `trg_protest_rules`, comparing the protest's `filed_at` with the heat's `last_finish_at` |
-| C6 fees | `CHECK` on `REGISTRATION` and `PROTEST` |
-| C7, C15 cancellation refund | Trigger `trg_registration_cancel` |
+| C5 15-minute protest window; C13 both pairs in the heat | Trigger `trg_protest_rules`, comparing the protest's `filed_at` with the heat's `heat_completed_at` |
+| C6 fees (€55 or €160 registration, €150 protest) | `CHECK` on `REGISTRATION` and `PROTEST` |
+| C7, C15 cancellation refund | Trigger `trg_registration_cancel` sets `cancelled_at` and the refund. `CHECK`s keep the refund at 0 or more and allow `cancelled_at` only on a cancelled entry |
+| Weigh-in bounds | `CHECK` on `REGISTRATION` (20–300 kg), also checked by the form |
 | C9 two different people in a pair | `CHECK` on `PAIR` |
+| C10 team of three carriers and one carried | Triggers `trg_team_roster_insert` and `trg_team_roster_update` stop a fourth carrier or a second carried person. Trigger `trg_team_participation_rules` lets a team race only with a complete roster, and only in a team category |
 | C11 judge certification | Trigger `trg_judges_certification` |
 | C12 referential integrity | Foreign keys. Championship links are `ON DELETE RESTRICT` |
 | C13 jury-only decisions | Trigger `trg_decision_jury` |
 
-**Not enforced, with reasons.** C8 (footwear inspection) has no inspection records in the schema. C10 (team of three carriers and one carried) needs a roster per championship, which Phase 3 does not have. The 60-minute decision target in U-3 is described in Phase 1 as a soft target. Notifications and emails in Phase 1 are outside the database.
+Every trigger and `CHECK` failure is shown in the web page as a plain sentence (see `database_message` in `src/app.py`), not as a raw error.
+
+**Not enforced, with reasons.** C8 (footwear inspection) has no inspection records in the schema. The site publishes no rosters for team winners before 2026, so C10 lets a team with no roster rows at all race, as with the other unpublished values in DC-9. The 60-minute decision target in U-3 is described in Phase 1 as a soft target. Notifications and emails in Phase 1 are outside the database.
 
 **Changes from Phase 1 behaviour.** The U-1, U-2 and U-3 cascades run in one application transaction rather than in triggers. U-2 flags results only in the affected championship, as Team 37 pointed out that a later role change must not invalidate earlier medals. A pending protest is represented by `PROTEST.status`, because a `PROTEST_DECISION` row requires a deciding official.
 
 ## Data sources
 
-Real data, taken from eukonkanto.fi: full 2026 results for every series including Sprint heats, World Championship and Sprint winners, team winners, world-record times, 2027 registered competitors, rules, venue, organiser and partners. Spelling variants of one person's name were merged, and entries the site withholds (such as "Name not published") were not imported.
+Real data, taken from eukonkanto.fi: full 2026 results for every series including Sprint heats, the 2026 team rosters with each member's role, World Championship and Sprint winners, team winners, world-record times, 2027 registered competitors, rules, venue, organiser and partners. Spelling variants of one person's name were merged, and entries the site withholds (such as "Name not published") were not imported.
 
-**Demo rows, which are not on the site.** They are labelled `DEMO` in `src/populate.sql`.
+**Demo rows, which are not on the site.** They are labelled `DEMO` in `src/populate.sql`. The site names none of these, but two operations and one report cannot run without them, so the team decided to use clearly labelled demo rows.
 
-- All officials and their phone numbers, judging assignments, protests, protest decisions and press outlets. The site names none of these, but reports and operations require them.
-- `last_finish_at` clock times on 2026 heats, needed to test the 15-minute rule.
+- Six officials and their phone numbers, judging assignments, two protests, their decisions and two press outlets. U-3 (decide a protest) needs jury officials and open protests, and the officials report (3.2.3) needs judging assignments.
+- `heat_completed_at` clock times on 2026 heats, needed to test the 15-minute protest rule (C5, I-2).
 
-**Limits caused by what the site publishes.** Silver and bronze exist for 2026 only, so earlier years of the medal table count gold only. Finish times exist for 2026 and for record-setting runs only, so the trend report shows all 29 championships but calculates a meaningful average for 2026 only. The Senior Series record shows 1:13.4, as in the 2026 results table, while the site's records block gives 1.13.49. No personal birth dates, weights or emails were invented for real competitors. `src/tools/build_populate.py` is the script that generated `populate.sql` from saved copies of the site.
+**Limits caused by what the site publishes.** Silver and bronze exist for 2026 only, so earlier years of the medal table count gold only. Finish times exist for 2026 and for record-setting runs only, so the trend report shows all 29 championships but calculates a meaningful average for 2026 only. The Senior Series record shows 1:13.4, as in the 2026 results table, while the site's records block gives 1.13.49. No personal birth dates, weigh-ins or emails were invented for real competitors. `src/tools/build_populate.py` is the script that generated `populate.sql` from saved copies of the site.
 
 ## Features
 
@@ -89,9 +96,9 @@ Numbers match the order of the video. Phase 1 requirement numbers are in bracket
 **Queries**
 
 1. **Front page winners.** `/`. Open the front page. Shows the 2026 winner of each pair series and the partners.
-2. **Race results** (3.1.1). `/results`. Open Results, then choose a series tab and year. Shows every result: rank, bib, carrier, carried, country, time, gap, drops and status. Sprint is split into heats and the final.
+2. **Race results** (3.1.1). `/results`. Open Results, then choose a series tab and year. Shows every result: rank, bib, carrier, carried, country, time, gap, drops and status. Sprint is split into qualifying heats and the final, with each pair's overall category rank.
 3. **Race statistics** (3.1.3). `/results`, the four boxes above the table. Changes with the series and year. Shows fastest, average and slowest time, and pairs with no drop.
-4. **Team results.** `/results?series=TEAM`. Open the Team Competition tab. Shows teams, members, time, gap and penalties.
+4. **Team results.** `/results?series=TEAM`. Open the Team Competition tab. Shows teams, that year's roster (three carriers and the carried competitor), time, gap and penalties.
 5. **Carriers by series** (3.1.2). `/competitors`, "Carriers in the 2026 championship". Choose a series and press Show. Lists carrier names and countries once each.
 6. **Athlete search** (3.1.4). `/competitors?q=...`. Type part of a last name and press Search. Shows matching athletes, nationality, races and best rank.
 7. **Team search** (3.1.5). `/teams?q=...`. Type part of a team name and press Search. Shows matching teams, country, members, results and wins.
@@ -106,7 +113,7 @@ Programme, Track and Rules, Official Grand Prix, Contact and Media and Accredita
 
 **Updates**
 
-14. **Register a pair** (I-1, create). `/register`. Fill in the form and press Register. Creates the people, the pair and the 2027 registration, and sets a backpack weight if needed.
+14. **Register a pair** (I-1, create). `/register`. Fill in the form and press Register. Creates the people, the pair and the 2027 registration with both weigh-ins, and sets a backpack weight if the carried competitor weighs under 49 kg.
 15. **File a protest** (I-2, create). `/protests/new`. Choose a heat and press Choose heat, complete the form and press File protest. Rejected outside the 15-minute window.
 16. **Correct a finish time** (U-1, update). `/officials/results`. Choose a heat, enter a new time on a row and press Save. Recalculates rank and gap for the heat and puts the pair's pending protests under review.
 17. **Decide a protest** (U-3, update). `/officials/protests`. Choose a jury official and outcome, and press Record decision. Upholding disqualifies the pair and recalculates the heat.

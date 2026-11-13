@@ -200,15 +200,15 @@ def main(snapshot):
             blocks[current].append(row)
 
     registrations = {}  # (year, cat, pair) -> bib
-    heats, participations, race_results, team_results, members = [], [], [], [], []
+    heats, participations, race_results, team_results, roster = [], [], [], [], []
     y2026 = 2026
 
     def add_heat(year, cat, number, round_name):
         heats.append((year, cat, number, round_name))
 
     # 2026 Sprint: three heats and the final.
-    for code, number, round_name in [("SPR_A1", 1, "HEAT"), ("SPR_A2", 2, "HEAT"),
-                                     ("SPR_A3", 3, "HEAT"), ("SPR_FIN", 4, "FINAL")]:
+    for code, number, round_name in [("SPR_A1", 1, "QUALIFYING"), ("SPR_A2", 2, "QUALIFYING"),
+                                     ("SPR_A3", 3, "QUALIFYING"), ("SPR_FIN", 4, "FINAL")]:
         add_heat(y2026, "SPRINT", number, round_name)
         for row in blocks[code]:
             rank, bib, names, country, time, diff = row[:6]
@@ -236,13 +236,16 @@ def main(snapshot):
                 race_results.append((pair, y2026, cat, 1, parse_time(time), "COMPLETED",
                                      int(rank.rstrip(".")), parse_time(diff) or 0))
 
-    # 2026 Team competition. Row format: carrier/carried, carrier/carrier.
+    # 2026 Team competition, one race. Row format: carrier/carried, carrier/carrier.
+    add_heat(y2026, "TEAM", 1, "FINAL")
     for row in blocks["JOUKKUE"]:
         rank, bib, first, second, name, codes, time, diff = row[:8]
         code_list = [c for c in codes.split("/") if c]
         team = store.team(name, code_list[0] if len(code_list) == 1 else None)
-        for person in first.split("/") + second.split("/"):
-            members.append((store.person(person)["id"], team["id"]))
+        first_carrier, carried = first.split("/")
+        for person, role in [(first_carrier, "CARRIER"), (carried, "CARRIED")] + \
+                            [(p, "CARRIER") for p in second.split("/")]:
+            roster.append((y2026, team["id"], store.person(person)["id"], role))
         penalty = 15000 if bib == "105" else 0   # "Aikasakko +15 sek" row on the site
         team_results.append((y2026, team["id"], int(bib), parse_time(time), penalty, "COMPLETED",
                              int(rank.rstrip(".")), parse_time(diff) or 0))
@@ -287,6 +290,7 @@ def main(snapshot):
     race_results.append((pair, year, "WOMEN", 1, millis, "COMPLETED", None, None))
 
     for year, names in HISTORIC_TEAM_WINNERS.items():
+        add_heat(year, "TEAM", 1, "FINAL")
         for name in names:
             team = store.team(name, HISTORIC_TEAM_COUNTRY.get(name))
             millis = TEAM_RECORD[2] if (name, year) == TEAM_RECORD[:2] else None
@@ -297,10 +301,11 @@ def main(snapshot):
     registered = [t for t in registered if t and t[0] and t[0][0] in ("Carrier", "Team")]
     for table, cat in zip(registered, ["MAIN", "SPRINT", "M40", "TEAM"]):
         for row in table[1:]:
-            if cat == "TEAM":
+            if cat == "TEAM":   # columns: team, carriers, carried, country
                 team = store.team(row[0], parse_countries(row[3])[0])
-                for person in [row[1].split(",")[0], row[2]]:
-                    members.append((store.person(person)["id"], team["id"]))
+                carriers = [c.strip() for c in row[1].split(",") if c.strip() != "To be determined"]
+                for person, role in [(c, "CARRIER") for c in carriers] + [(row[2], "CARRIED")]:
+                    roster.append((2027, team["id"], store.person(person)["id"], role))
                 continue
             if "Name not published" in (row[0], row[2]):
                 continue
@@ -361,7 +366,7 @@ def main(snapshot):
     for person in store.people.values():
         first, last = split_name(person["name"])
         person_rows.append((person["id"], first, last, None, None, None, "COMPETITOR", person["nat"]))
-        competitor_rows.append((person["id"], None, None))
+        competitor_rows.append((person["id"], None))
     next_person = len(person_rows) + 1
 
     # DEMO officials: the site names no officials, jury members or protests.
@@ -379,7 +384,7 @@ def main(snapshot):
     person_columns = ["person_id", "first_name", "last_name", "email", "gender", "date_of_birth",
                       "role_type", "nationality_code"]
     w(insert("PERSON", person_columns, person_rows))
-    w(insert("COMPETITOR", ["person_id", "weight_kg", "career_start_year"], competitor_rows))
+    w(insert("COMPETITOR", ["person_id", "career_start_year"], competitor_rows))
     w("-- DEMO: officials (not published on the site).\n")
     w(insert("OFFICIAL", ["person_id", "certification_level", "official_role"], official_rows))
     w(insert("PERSON_PHONE", ["person_id", "phone_number"],
@@ -388,7 +393,6 @@ def main(snapshot):
 
     w(insert("TEAM", ["team_id", "name", "founded_year", "home_country_code", "parent_team_id"],
              [(t["id"], t["name"], None, t["country"], None) for t in store.teams.values()]))
-    w(insert("COMPETES_FOR", ["competitor_id", "team_id"], sorted(set(members))))
     w(insert("PAIR", ["carrier_id", "carried_id", "formed_year", "is_active"],
              [(a, b, None, True) for a, b in store.pairs]))
     w(insert("REPRESENTS", ["carrier_id", "carried_id", "country_code"],
@@ -405,6 +409,8 @@ def main(snapshot):
              [(champ_id[y], lang) for y in (2026, 2027) for lang in ("Finnish", "English")]))
     w(insert("HAS_CATEGORY", ["champ_id", "cat_code"],
              [(champ_id[y], c) for y in years for c in categories_of[y]]))
+    w(insert("TEAM_ROSTER", ["champ_id", "team_id", "competitor_id", "team_role"],
+             [(champ_id[y], t, p, r) for y, t, p, r in roster]))
 
     # DEMO clock times: the site publishes only elapsed times, and C5 needs a clock time.
     finish = {("SPRINT", 1): "2026-07-03 19:08:00", ("SPRINT", 2): "2026-07-03 19:12:00",
@@ -413,9 +419,9 @@ def main(snapshot):
               ("MAIN", 1): "2026-07-04 16:30:00"}
     scheduled = {("SPRINT", n): "2026-07-03 19:00:00" for n in (1, 2, 3, 4)}
     scheduled[("MAIN", 1)] = "2026-07-04 15:00:00"
-    w("-- last_finish_at on 2026 heats is DEMO (the site publishes elapsed times only).\n")
+    w("-- heat_completed_at on 2026 heats is DEMO (the site publishes elapsed times only).\n")
     w(insert("RACE_HEAT",
-             ["champ_id", "cat_code", "heat_number", "round", "scheduled_time", "last_finish_at", "status"],
+             ["champ_id", "cat_code", "heat_number", "round_type", "scheduled_time", "heat_completed_at", "status"],
              [(champ_id[y], c, n, r,
                scheduled.get((c, n)) if y == 2026 else None,
                finish.get((c, n)) if y == 2026 else None, "COMPLETED")
@@ -429,10 +435,12 @@ def main(snapshot):
               for p, y, c, n, t, s, r, d in race_results]))
     w(insert("REGISTRATION", ["champ_id", "cat_code", "carrier_id", "carried_id", "bib_number", "status"],
              [(champ_id[y], c, p[0], p[1], bib, "CONFIRMED") for (y, c, p), bib in registrations.items()]))
+    w(insert("TEAM_PARTICIPATES_IN", ["champ_id", "cat_code", "heat_number", "team_id"],
+             [(champ_id[y], "TEAM", 1, t) for y, t, *_ in team_results]))
     w(insert("TEAM_RESULT",
-             ["champ_id", "team_id", "bib_number", "finish_time_ms", "penalty_ms", "finish_status",
-              "rank_in_race", "diff_to_leader_ms"],
-             [(champ_id[y], t, b, ms, pen, s, r, d) for y, t, b, ms, pen, s, r, d in team_results]))
+             ["champ_id", "cat_code", "heat_number", "team_id", "bib_number", "finish_time_ms", "penalty_ms",
+              "finish_status", "rank_in_heat", "diff_to_leader_ms", "drop_count"],
+             [(champ_id[y], "TEAM", 1, t, b, ms, pen, s, r, d, None) for y, t, b, ms, pen, s, r, d in team_results]))
 
     partner_rows = [(i + 1, name, None, None, None, None) for i, name in enumerate(PARTNERS)]
     w(insert("SPONSOR", ["sponsor_id", "name", "country", "contact_email", "contact_phone", "contact_address"], partner_rows))

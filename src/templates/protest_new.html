@@ -4,11 +4,11 @@
 <h1>File a protest</h1>
 <p class="muted">A protest must be filed within 15 minutes of the last finish in the heat. Fee: €150, non-refundable.</p>
 <form class="inline" method="get">
-  <label>Heat <select name="heat">{% for h in heats %}{% set v = h.champ_id ~ '|' ~ h.cat_code ~ '|' ~ h.heat_number %}<option value="{{ v }}" {% if heat and heat.champ_id == h.champ_id and heat.cat_code == h.cat_code and heat.heat_number == h.heat_number %}selected{% endif %}>{{ h.year }} {{ h.category }}, {{ 'final' if h.round == 'FINAL' else 'heat ' ~ h.heat_number }}</option>{% endfor %}</select></label>
+  <label>Heat <select name="heat">{% for h in heats %}{% set v = h.champ_id ~ '|' ~ h.cat_code ~ '|' ~ h.heat_number %}<option value="{{ v }}" {% if heat and heat.champ_id == h.champ_id and heat.cat_code == h.cat_code and heat.heat_number == h.heat_number %}selected{% endif %}>{{ h.year }} {{ h.category }}, {{ 'final' if h.round_type == 'FINAL' else 'heat ' ~ h.heat_number }}</option>{% endfor %}</select></label>
   <button>Choose heat</button>
 </form>
 {% if heat %}
-<p>Last finish in this heat: <strong>{{ heat.last_finish_at }}</strong></p>
+<p>Last finish in this heat: <strong>{{ heat.heat_completed_at }}</strong></p>
 <form class="stack" method="post">
   <input type="hidden" name="heat" value="{{ heat.champ_id }}|{{ heat.cat_code }}|{{ heat.heat_number }}">
   <fieldset><legend>Protest</legend>

@@ -21,9 +21,9 @@ Say: "This is the Wife Carrying World Championships database, modelled on eukonk
 | # | Do this |
 |---|---|
 | 1 | Front page: point at the 2026 winners and partners |
-| 2 | Results: show Main Series, then the Sprint tab (heats and final) |
+| 2 | Results: show Main Series, then the Sprint tab (qualifying heats, final, and the Category rank column) |
 | 3 | Back on Main Series: point at the four statistics boxes |
-| 4 | Team Competition tab: point at the +15 s penalty on Team 2 SPOLK |
+| 4 | Team Competition tab: point at the roster (3 carriers + "(carried)") and the +15 s penalty on Team 2 SPOLK |
 | 5 | Competitors menu, Registered Competitors: Series = Sprint, press Show |
 | 6 | Search last name `Miettinen`, then `zzz` to show the no-match message |
 | 7 | Competitors menu, Teams: search `Beer` |
@@ -38,13 +38,13 @@ For each one: run the query, do the action in the browser, run the **same** quer
 ### 14. Register a pair
 
 ```sql
-SELECT p.first_name, p.last_name, r.bib_number, r.backpack_weight_kg, r.fee_paid, r.status FROM REGISTRATION r JOIN PERSON p ON p.person_id = r.carrier_id JOIN CHAMPIONSHIP c ON c.champ_id = r.champ_id WHERE c.year = 2027 AND r.bib_number = 500;
+SELECT p.first_name, p.last_name, r.bib_number, r.carrier_weigh_in_kg, r.carried_weigh_in_kg, r.backpack_weight_kg, r.fee_paid, r.status FROM REGISTRATION r JOIN PERSON p ON p.person_id = r.carrier_id JOIN CHAMPIONSHIP c ON c.champ_id = r.champ_id WHERE c.year = 2027 AND r.bib_number = 500;
 ```
 
 Competitors menu, Register. Series Main Series, bib `500`.
 Carrier: Arjun Rao, arjun@example.com, 1990-01-01, 75 kg, India.
 Carried: Meera Rao, meera@example.com, 1992-01-01, **45** kg, India.
-Press Register. The message shows a 4 kg backpack.
+Press Register. The message shows a 4 kg backpack. The query now shows both weigh-ins stored on the registration, not on the competitor.
 
 ### 15. File a protest
 

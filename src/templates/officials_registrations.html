@@ -3,6 +3,6 @@
 {% block content %}
 <h1>Change a carrier: {{ year }}</h1>
 <nav class="tabs">{% for y in [latest_year, next_year] %}<a {% if y == year %}class="active"{% endif %} href="{{ url_for('officials_registrations', year=y) }}">{{ y }}</a>{% endfor %}</nav>
-<div class="table-wrap"><table><thead><tr><th>Series</th><th>Bib</th><th>Carrier</th><th>Carried</th><th>Backpack</th><th>Status</th><th></th></tr></thead>
-<tbody>{% for r in rows %}<tr><td>{{ r.series }}</td><td>{{ r.bib_number or '' }}</td><td>{{ r.carrier }}</td><td>{{ r.carried }}</td><td>{{ r.backpack_weight_kg }} kg</td><td><span class="chip">{{ r.status }}</span></td><td>{% if r.status == 'CONFIRMED' %}<a href="{{ url_for('officials_change_role', champ_id=r.champ_id, cat_code=r.cat_code, carrier_id=r.carrier_id, carried_id=r.carried_id) }}">Change</a>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+<div class="table-wrap"><table><thead><tr><th>Series</th><th>Bib</th><th>Carrier</th><th>Carried</th><th>Carried weigh-in</th><th>Backpack</th><th>Status</th><th></th></tr></thead>
+<tbody>{% for r in rows %}<tr><td>{{ r.series }}</td><td>{{ r.bib_number or '' }}</td><td>{{ r.carrier }}</td><td>{{ r.carried }}</td><td>{{ (r.carried_weigh_in_kg ~ ' kg') if r.carried_weigh_in_kg is not none else 'Not published' }}</td><td>{{ r.backpack_weight_kg }} kg</td><td><span class="chip">{{ r.status }}</span></td><td>{% if r.status == 'CONFIRMED' %}<a href="{{ url_for('officials_change_role', champ_id=r.champ_id, cat_code=r.cat_code, carrier_id=r.carrier_id, carried_id=r.carried_id) }}">Change</a>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
 {% endblock %}

@@ -1,6 +1,6 @@
 -- Wife Carrying World Championships: schema for MySQL 8.4
--- Baseline: Team 28's Phase 3 schema (26 relations). Every addition or change
--- is marked "DC-n" and explained in the Design Changes section of README.md.
+-- Baseline: Team 28's Phase 3 schema. Every addition or change is marked
+-- "DC-n" and explained in the Design Changes section of README.md.
 -- Run with: mysql -u <user> -p < schema.sql
 
 DROP DATABASE IF EXISTS wife_carrying_db;
@@ -85,12 +85,12 @@ CREATE TABLE PERSON_PHONE (
         REFERENCES PERSON(person_id) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
-CREATE TABLE COMPETITOR (                                 -- DC-2: bib_number and role moved out
-    person_id         INT          NOT NULL,
-    weight_kg         DECIMAL(5,2) NULL,                  -- DC-9
-    career_start_year SMALLINT     NULL,
+-- DC-2: bib_number, role and weight_kg belong to one championship entry, so
+-- they moved to REGISTRATION (bib, weigh-ins) and PAIR / TEAM_ROSTER (role).
+CREATE TABLE COMPETITOR (
+    person_id         INT      NOT NULL,
+    career_start_year SMALLINT NULL,
     PRIMARY KEY (person_id),
-    CONSTRAINT chk_competitor_weight CHECK (weight_kg IS NULL OR weight_kg > 0),
     CONSTRAINT fk_competitor_person FOREIGN KEY (person_id)
         REFERENCES PERSON(person_id) ON DELETE CASCADE ON UPDATE CASCADE
 );
@@ -122,16 +122,6 @@ CREATE TABLE TEAM (
         REFERENCES TEAM(team_id) ON DELETE SET NULL ON UPDATE CASCADE
 );
 
-CREATE TABLE COMPETES_FOR (
-    competitor_id INT NOT NULL,
-    team_id       INT NOT NULL,
-    PRIMARY KEY (competitor_id, team_id),
-    CONSTRAINT fk_cf_competitor FOREIGN KEY (competitor_id)
-        REFERENCES COMPETITOR(person_id) ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT fk_cf_team FOREIGN KEY (team_id)
-        REFERENCES TEAM(team_id) ON DELETE CASCADE ON UPDATE CASCADE
-);
-
 -- RESTRICT on these keys: a pair is part of the historical record, and MySQL
 -- does not allow a CHECK on a column whose foreign key has a CASCADE action.
 CREATE TABLE PAIR (
@@ -148,7 +138,7 @@ CREATE TABLE PAIR (
 );
 CREATE INDEX idx_pair_carried ON PAIR (carried_id);
 
-CREATE TABLE REPRESENTS (                                 -- DC-10: no maximum of two countries
+CREATE TABLE REPRESENTS (                                 -- DC-10: any number of countries
     carrier_id   INT     NOT NULL,
     carried_id   INT     NOT NULL,
     country_code CHAR(3) NOT NULL,
@@ -216,9 +206,9 @@ CREATE TABLE RACE_HEAT (
     champ_id       INT         NOT NULL,
     cat_code       VARCHAR(10) NOT NULL,
     heat_number    SMALLINT    NOT NULL,
-    round          ENUM('HEAT','FINAL') NOT NULL DEFAULT 'FINAL',             -- DC-3
+    round_type     ENUM('QUALIFYING','FINAL') NOT NULL DEFAULT 'FINAL',       -- DC-3
     scheduled_time DATETIME    NULL,
-    last_finish_at DATETIME    NULL,                                          -- DC-5
+    heat_completed_at DATETIME NULL,                                          -- DC-5
     status         ENUM('SCHEDULED','COMPLETED','CANCELLED') NOT NULL DEFAULT 'SCHEDULED',
     PRIMARY KEY (champ_id, cat_code, heat_number),
     CONSTRAINT chk_heat_number CHECK (heat_number >= 1),
@@ -267,45 +257,89 @@ CREATE TABLE RACE_RESULT (
 );
 CREATE INDEX idx_result_heat_rank ON RACE_RESULT (champ_id, cat_code, heat_number, rank_in_heat);
 
--- DC-1: registration per championship and category.
+-- DC-1: one pair's entry in one championship category. It holds everything
+-- that belonged to the event rather than to the person: bib, event weigh-ins,
+-- backpack, fee and cancellation.
 CREATE TABLE REGISTRATION (
-    champ_id           INT          NOT NULL,
-    cat_code           VARCHAR(10)  NOT NULL,
-    carrier_id         INT          NOT NULL,
-    carried_id         INT          NOT NULL,
-    bib_number         SMALLINT     NULL,
-    backpack_weight_kg DECIMAL(5,2) NOT NULL DEFAULT 0,
-    fee_paid           DECIMAL(6,2) NULL,
-    status             ENUM('CONFIRMED','CANCELLED','REPLACED') NOT NULL DEFAULT 'CONFIRMED',
-    refund_amount      DECIMAL(6,2) NULL,
-    registered_at      DATETIME     NULL,
+    champ_id            INT          NOT NULL,
+    cat_code            VARCHAR(10)  NOT NULL,
+    carrier_id          INT          NOT NULL,
+    carried_id          INT          NOT NULL,
+    bib_number          SMALLINT     NULL,
+    carrier_weigh_in_kg DECIMAL(5,2) NULL,
+    carried_weigh_in_kg DECIMAL(5,2) NULL,
+    backpack_weight_kg  DECIMAL(5,2) NOT NULL DEFAULT 0,
+    fee_paid            DECIMAL(6,2) NULL,
+    status              ENUM('CONFIRMED','CANCELLED','REPLACED') NOT NULL DEFAULT 'CONFIRMED',
+    cancelled_at        DATETIME     NULL,
+    refund_amount       DECIMAL(6,2) NULL,
+    registered_at       DATETIME     NULL,
     PRIMARY KEY (champ_id, cat_code, carrier_id, carried_id),
     CONSTRAINT uq_reg_bib UNIQUE (champ_id, cat_code, bib_number),            -- C4
     CONSTRAINT chk_reg_fee CHECK (fee_paid IS NULL OR fee_paid IN (55, 160)), -- C6
-    CONSTRAINT chk_reg_backpack CHECK (backpack_weight_kg >= 0),
+    CONSTRAINT chk_reg_weigh_in CHECK ((carrier_weigh_in_kg IS NULL OR carrier_weigh_in_kg BETWEEN 20 AND 300)
+                                   AND (carried_weigh_in_kg IS NULL OR carried_weigh_in_kg BETWEEN 20 AND 300)),
+    CONSTRAINT chk_reg_backpack CHECK (backpack_weight_kg BETWEEN 0 AND 49),   -- C3
+    CONSTRAINT chk_reg_refund CHECK (refund_amount IS NULL OR refund_amount >= 0),
+    CONSTRAINT chk_reg_cancelled CHECK (status = 'CANCELLED' OR cancelled_at IS NULL),
     CONSTRAINT fk_reg_offered FOREIGN KEY (champ_id, cat_code)
         REFERENCES HAS_CATEGORY(champ_id, cat_code) ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT fk_reg_pair FOREIGN KEY (carrier_id, carried_id)
         REFERENCES PAIR(carrier_id, carried_id) ON DELETE RESTRICT ON UPDATE RESTRICT
 );
 
--- DC-4: the Team race has four people, so it cannot be a pair result.
+-- DC-12: replaces COMPETES_FOR. Who raced for a team, and in which role,
+-- is recorded per championship, because team line-ups change between years.
+CREATE TABLE TEAM_ROSTER (
+    champ_id      INT NOT NULL,
+    team_id       INT NOT NULL,
+    competitor_id INT NOT NULL,
+    team_role     ENUM('CARRIER','CARRIED') NOT NULL,
+    PRIMARY KEY (champ_id, team_id, competitor_id),
+    CONSTRAINT fk_roster_champ FOREIGN KEY (champ_id)
+        REFERENCES CHAMPIONSHIP(champ_id) ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_roster_team FOREIGN KEY (team_id)
+        REFERENCES TEAM(team_id) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_roster_competitor FOREIGN KEY (competitor_id)
+        REFERENCES COMPETITOR(person_id) ON DELETE CASCADE ON UPDATE CASCADE
+);
+CREATE INDEX idx_roster_competitor ON TEAM_ROSTER (competitor_id);
+
+-- DC-4: a team race has four people, so it cannot use the pair tables.
+-- TEAM_PARTICIPATES_IN and TEAM_RESULT mirror PARTICIPATES_IN and RACE_RESULT.
+CREATE TABLE TEAM_PARTICIPATES_IN (
+    champ_id    INT         NOT NULL,
+    cat_code    VARCHAR(10) NOT NULL,
+    heat_number SMALLINT    NOT NULL,
+    team_id     INT         NOT NULL,
+    PRIMARY KEY (champ_id, cat_code, heat_number, team_id),
+    CONSTRAINT fk_tpart_heat FOREIGN KEY (champ_id, cat_code, heat_number)
+        REFERENCES RACE_HEAT(champ_id, cat_code, heat_number) ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_tpart_team FOREIGN KEY (team_id)
+        REFERENCES TEAM(team_id) ON DELETE RESTRICT ON UPDATE CASCADE
+);
+CREATE INDEX idx_tpart_team ON TEAM_PARTICIPATES_IN (team_id);
+
 CREATE TABLE TEAM_RESULT (
-    champ_id          INT      NOT NULL,
-    team_id           INT      NOT NULL,
-    bib_number        SMALLINT NULL,
-    finish_time_ms    INT      NULL,
-    penalty_ms        INT      NOT NULL DEFAULT 0,
+    champ_id          INT         NOT NULL,
+    cat_code          VARCHAR(10) NOT NULL,
+    heat_number       SMALLINT    NOT NULL,
+    team_id           INT         NOT NULL,
+    bib_number        SMALLINT    NULL,
+    finish_time_ms    INT         NULL,
+    penalty_ms        INT         NOT NULL DEFAULT 0,
     finish_status     ENUM('COMPLETED','DNF','DNS','DQ') NOT NULL DEFAULT 'COMPLETED',
-    rank_in_race      SMALLINT NULL,
-    diff_to_leader_ms INT      NULL,
-    PRIMARY KEY (champ_id, team_id),
+    rank_in_heat      SMALLINT    NULL,
+    diff_to_leader_ms INT         NULL,
+    drop_count        TINYINT     NULL,
+    PRIMARY KEY (champ_id, cat_code, heat_number, team_id),
     CONSTRAINT chk_team_time CHECK (finish_time_ms IS NULL OR finish_time_ms > 0),
     CONSTRAINT chk_team_penalty CHECK (penalty_ms >= 0),
-    CONSTRAINT fk_tr_champ FOREIGN KEY (champ_id)
-        REFERENCES CHAMPIONSHIP(champ_id) ON DELETE RESTRICT ON UPDATE CASCADE,
-    CONSTRAINT fk_tr_team FOREIGN KEY (team_id)
-        REFERENCES TEAM(team_id) ON DELETE RESTRICT ON UPDATE CASCADE
+    CONSTRAINT chk_team_rank CHECK (rank_in_heat IS NULL OR rank_in_heat >= 1),
+    CONSTRAINT chk_team_drops CHECK (drop_count IS NULL OR drop_count >= 0),
+    CONSTRAINT fk_tr_participation FOREIGN KEY (champ_id, cat_code, heat_number, team_id)
+        REFERENCES TEAM_PARTICIPATES_IN(champ_id, cat_code, heat_number, team_id)
+        ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 -- ---------------------------------------------------------------------------
@@ -435,7 +469,6 @@ BEGIN
     DECLARE v_min_carrier, v_min_carried TINYINT;
     DECLARE v_min_weight DECIMAL(5,2);
     DECLARE v_dob_carrier, v_dob_carried DATE;
-    DECLARE v_weight DECIMAL(5,2);
 
     SELECT start_date INTO v_start FROM CHAMPIONSHIP WHERE champ_id = NEW.champ_id;
     SELECT min_age_carrier, min_age_carried, min_weight_carried_kg
@@ -443,7 +476,6 @@ BEGIN
       FROM RACE_CATEGORY WHERE cat_code = NEW.cat_code;
     SELECT date_of_birth INTO v_dob_carrier FROM PERSON WHERE person_id = NEW.carrier_id;
     SELECT date_of_birth INTO v_dob_carried FROM PERSON WHERE person_id = NEW.carried_id;
-    SELECT weight_kg INTO v_weight FROM COMPETITOR WHERE person_id = NEW.carried_id;
 
     IF v_start IS NOT NULL AND v_dob_carrier IS NOT NULL
        AND TIMESTAMPDIFF(YEAR, v_dob_carrier, v_start) < v_min_carrier THEN      -- C1
@@ -453,8 +485,8 @@ BEGIN
        AND TIMESTAMPDIFF(YEAR, v_dob_carried, v_start) < v_min_carried THEN      -- C2
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Carried competitor is younger than the minimum age for this category on the start date.';
     END IF;
-    IF v_weight IS NOT NULL THEN                                                 -- C3
-        SET NEW.backpack_weight_kg = GREATEST(v_min_weight - v_weight, 0);
+    IF NEW.carried_weigh_in_kg IS NOT NULL THEN                                  -- C3
+        SET NEW.backpack_weight_kg = GREATEST(v_min_weight - NEW.carried_weigh_in_kg, 0);
     END IF;
 END //
 
@@ -463,9 +495,10 @@ FOR EACH ROW
 BEGIN
     DECLARE v_start DATE;
     IF NEW.status = 'CANCELLED' AND OLD.status <> 'CANCELLED' THEN               -- C7, C15
+        SET NEW.cancelled_at = IFNULL(NEW.cancelled_at, NOW());
         SELECT start_date INTO v_start FROM CHAMPIONSHIP WHERE champ_id = NEW.champ_id;
-        IF v_start IS NOT NULL AND DATEDIFF(v_start, CURDATE()) >= 30 THEN
-            SET NEW.refund_amount = IFNULL(NEW.fee_paid, 0) - 10;
+        IF v_start IS NOT NULL AND DATEDIFF(v_start, DATE(NEW.cancelled_at)) >= 30 THEN
+            SET NEW.refund_amount = GREATEST(IFNULL(NEW.fee_paid, 0) - 10, 0);
         ELSE
             SET NEW.refund_amount = 0;
         END IF;
@@ -477,7 +510,7 @@ FOR EACH ROW
 BEGIN
     DECLARE v_finish DATETIME;
 
-    SELECT last_finish_at INTO v_finish FROM RACE_HEAT
+    SELECT heat_completed_at INTO v_finish FROM RACE_HEAT
      WHERE champ_id = NEW.champ_id AND cat_code = NEW.heat_cat_code AND heat_number = NEW.heat_number;
     IF v_finish IS NULL THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'No finish time is recorded for this heat, so a protest cannot be accepted.';
@@ -518,4 +551,77 @@ BEGIN
     END IF;
 END //
 
+CREATE TRIGGER trg_team_roster_insert BEFORE INSERT ON TEAM_ROSTER
+FOR EACH ROW
+BEGIN
+    IF NEW.team_role = 'CARRIER' AND (SELECT COUNT(*) FROM TEAM_ROSTER
+         WHERE champ_id = NEW.champ_id AND team_id = NEW.team_id AND team_role = 'CARRIER') >= 3 THEN  -- C10
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'A team already has three carriers in this championship.';
+    END IF;
+    IF NEW.team_role = 'CARRIED' AND (SELECT COUNT(*) FROM TEAM_ROSTER
+         WHERE champ_id = NEW.champ_id AND team_id = NEW.team_id AND team_role = 'CARRIED') >= 1 THEN  -- C10
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'A team already has its one carried competitor in this championship.';
+    END IF;
+END //
+
+CREATE TRIGGER trg_team_roster_update BEFORE UPDATE ON TEAM_ROSTER
+FOR EACH ROW
+BEGIN
+    IF NEW.team_role = 'CARRIER' AND (SELECT COUNT(*) FROM TEAM_ROSTER
+         WHERE champ_id = NEW.champ_id AND team_id = NEW.team_id AND team_role = 'CARRIER'
+           AND NOT (champ_id = OLD.champ_id AND team_id = OLD.team_id AND competitor_id = OLD.competitor_id)) >= 3 THEN  -- C10
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'A team already has three carriers in this championship.';
+    END IF;
+    IF NEW.team_role = 'CARRIED' AND (SELECT COUNT(*) FROM TEAM_ROSTER
+         WHERE champ_id = NEW.champ_id AND team_id = NEW.team_id AND team_role = 'CARRIED'
+           AND NOT (champ_id = OLD.champ_id AND team_id = OLD.team_id AND competitor_id = OLD.competitor_id)) >= 1 THEN  -- C10
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'A team already has its one carried competitor in this championship.';
+    END IF;
+END //
+
+-- A team may start a heat only with a complete roster of three carriers and one
+-- carried competitor. Historical team winners have no published roster (DC-9),
+-- so a team with no roster rows at all is let through.
+CREATE TRIGGER trg_team_participation_rules BEFORE INSERT ON TEAM_PARTICIPATES_IN
+FOR EACH ROW
+BEGIN
+    DECLARE v_carriers, v_carried, v_team_size INT;
+    SELECT max_team_size INTO v_team_size FROM RACE_CATEGORY WHERE cat_code = NEW.cat_code;
+    IF v_team_size <= 2 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Teams can only race in a team category.';
+    END IF;
+    SELECT COALESCE(SUM(team_role = 'CARRIER'), 0), COALESCE(SUM(team_role = 'CARRIED'), 0)
+      INTO v_carriers, v_carried
+      FROM TEAM_ROSTER WHERE champ_id = NEW.champ_id AND team_id = NEW.team_id;
+    IF v_carriers + v_carried > 0 AND (v_carriers <> 3 OR v_carried <> 1) THEN   -- C10
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'A team must have exactly three carriers and one carried competitor to race.';
+    END IF;
+END //
+
 DELIMITER ;
+
+-- ---------------------------------------------------------------------------
+-- Derived data
+-- ---------------------------------------------------------------------------
+-- DC-13: rank_in_category is derived rather than stored, so U-1 and U-3 never leave
+-- it out of date. A pair's place comes from its best run: the final if it
+-- reached one, otherwise its qualifying time behind all finalists. Results
+-- with an unpublished rank (rank_in_heat NULL) and non-finishers are left out.
+CREATE VIEW CATEGORY_RANKING AS
+WITH best_run AS (
+    SELECT rr.champ_id, rr.cat_code, rr.carrier_id, rr.carried_id, rh.round_type,
+           rr.rank_in_heat, rr.finish_time_ms,
+           ROW_NUMBER() OVER (PARTITION BY rr.champ_id, rr.cat_code, rr.carrier_id, rr.carried_id
+                              ORDER BY rh.round_type = 'FINAL' DESC, rr.finish_time_ms) AS run_order
+      FROM RACE_RESULT rr
+      JOIN RACE_HEAT rh ON rh.champ_id = rr.champ_id AND rh.cat_code = rr.cat_code
+                       AND rh.heat_number = rr.heat_number
+     WHERE rr.finish_status = 'COMPLETED' AND rr.rank_in_heat IS NOT NULL
+)
+SELECT champ_id, cat_code, carrier_id, carried_id, round_type, finish_time_ms,
+       RANK() OVER (PARTITION BY champ_id, cat_code
+                    ORDER BY round_type = 'FINAL' DESC,
+                             CASE WHEN round_type = 'FINAL' THEN rank_in_heat END,
+                             finish_time_ms) AS rank_in_category
+  FROM best_run
+ WHERE run_order = 1;
