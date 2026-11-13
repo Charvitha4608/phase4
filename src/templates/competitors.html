@@ -2,15 +2,15 @@
 {% block title %}Competitors{% endblock %}
 {% block content %}
 <h1>Competitors</h1>
-<h2>Search athletes by last name</h2>
+<h2>Search athletes</h2>
 <form class="inline" action="{{ url_for('competitors') }}" method="get">
-  <label>Last name contains <input type="search" name="q" value="{{ term }}" placeholder="Miettinen"></label>
+  <label>Name contains <input type="search" name="q" value="{{ term }}" placeholder="Miettinen"></label>
   <input type="hidden" name="series" value="{{ series }}"><button>Search</button>
 </form>
 {% if athletes is not none %}
   {% if athletes %}<div class="table-wrap"><table><thead><tr><th>Name</th><th>Nationality</th><th>Races stored</th><th>Best rank</th></tr></thead>
   <tbody>{% for a in athletes %}<tr><td>{{ a.name }}</td><td>{{ a.nationality or 'Not published' }}</td><td>{{ a.races }}</td><td>{{ a.best_rank or '–' }}</td></tr>{% endfor %}</tbody></table></div>
-  {% else %}<p class="flash error">No athlete's last name contains "{{ term }}".</p>{% endif %}
+  {% else %}<p class="flash error">No athlete found matching "{{ term }}".</p>{% endif %}
 {% endif %}
 <h2>Carriers in the {{ latest_year }} championship</h2>
 <form class="inline" action="{{ url_for('competitors') }}" method="get">

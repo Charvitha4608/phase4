@@ -164,7 +164,8 @@ def carriers_in_category(year, cat_code):
 
 
 def search_athletes(term):
-    """3.1.4 Search: competitors whose last name contains the term."""
+    """3.1.4 Search: competitors whose full name, first name, or last name contains the term."""
+    pattern = like_pattern(term)
     sql = """
         SELECT CONCAT_WS(' ', p.first_name, p.last_name) AS name, co.name AS nationality,
                (SELECT COUNT(*) FROM RACE_RESULT rr
@@ -174,9 +175,12 @@ def search_athletes(term):
           FROM PERSON p
           JOIN COMPETITOR c ON c.person_id = p.person_id
           LEFT JOIN COUNTRY co ON co.country_code = p.nationality_code
-         WHERE p.last_name LIKE %s
+         WHERE CONCAT_WS(' ', p.first_name, p.last_name) LIKE %s
+            OR CONCAT_WS(' ', p.last_name, p.first_name) LIKE %s
+            OR p.first_name LIKE %s
+            OR p.last_name LIKE %s
          ORDER BY p.last_name, p.first_name"""
-    return fetch_all(sql, (like_pattern(term),))
+    return fetch_all(sql, (pattern, pattern, pattern, pattern))
 
 
 def search_teams(term):

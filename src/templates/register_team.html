@@ -11,7 +11,6 @@
     <label>Team name <input name="team_name" value="{{ form.get('team_name', '') }}" required></label>
     <label>Home country <select name="home_country"><option value="">Not published</option>{% for c in countries %}<option value="{{ c.country_code }}" {% if form.get('home_country') == c.country_code %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></label>
     <label>Series <select name="series" required>{% for s in series %}<option value="{{ s.cat_code }}" {% if form.get('series') == s.cat_code %}selected{% endif %}>{{ s.name }} — €{{ s.entry_fee_eur|int }}</option>{% endfor %}</select></label>
-    <label>Bib number <input type="number" min="1" name="bib" value="{{ form.get('bib', '') }}" required></label>
   </fieldset>
   {{ person('carrier1', 'Carrier 1 (starts the leg)', form, countries) }}
   {{ person('carrier2', 'Carrier 2', form, countries) }}

@@ -8,7 +8,6 @@
 <form class="stack" method="post">
   <fieldset><legend>Entry</legend>
     <label>Series <select name="series" required>{% for s in series %}<option value="{{ s.cat_code }}" {% if form.get('series') == s.cat_code %}selected{% endif %}>{{ s.name }} — €{{ s.entry_fee_eur|int }}</option>{% endfor %}</select></label>
-    <label>Bib number <input type="number" min="1" name="bib" value="{{ form.get('bib', '') }}" required></label>
   </fieldset>
   {{ person('carrier', 'Carrier', form, countries) }}
   {{ person('carried', 'Carried competitor', form, countries) }}

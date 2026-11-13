@@ -288,10 +288,9 @@ def register():
             cat_code = required(request.form, "series", "Series")
             if cat_code not in PAIR_SERIES:
                 raise FormError("Please choose a series.")
-            bib = to_int(required(request.form, "bib", "Bib number"), "Bib number", 1, 9999)
             carrier = person_from_form(request.form, "carrier", "Carrier")
             carried = person_from_form(request.form, "carried", "Carried competitor")
-            return updates.register_pair(championship["champ_id"], cat_code, bib, carrier, carried)
+            return updates.register_pair(championship["champ_id"], cat_code, carrier, carried)
 
         def message(backpack):
             text = f"Registered for {NEXT_YEAR}."
@@ -316,11 +315,10 @@ def register_team():
                 raise FormError("Please choose a team series.")
             team_name = required(request.form, "team_name", "Team name")
             home_country = request.form.get("home_country", "").strip() or None
-            bib = to_int(required(request.form, "bib", "Bib number"), "Bib number", 1, 9999)
             carriers = [person_from_form(request.form, f"carrier{n}", f"Carrier {n}") for n in (1, 2, 3)]
             carried = person_from_form(request.form, "carried", "Carried competitor")
             return updates.register_team(championship["champ_id"], cat_code, team_name, home_country,
-                                         bib, carriers, carried)
+                                         carriers, carried)
 
         def message(result):
             _, backpack, _fee = result
