@@ -294,13 +294,43 @@ def register():
             return updates.register_pair(championship["champ_id"], cat_code, bib, carrier, carried)
 
         def message(backpack):
-            text = f"Registered for {NEXT_YEAR}. Fee paid: €55."
+            text = f"Registered for {NEXT_YEAR}."
             return text + (f" The carried competitor must wear a {backpack} kg backpack." if backpack else "")
 
         if run_write(action, message):
             return redirect(url_for("competitors") + "#registered")
     return render_template("register.html", championship=championship, countries=queries.countries(),
-                           series=queries.categories_of_championship(NEXT_YEAR), form=request.form)
+                           series=queries.categories_of_championship(NEXT_YEAR), fees=queries.entry_fees(),
+                           form=request.form)
+
+
+@app.route("/register/team", methods=["GET", "POST"])
+def register_team():
+    """I-1 for the team category: three carriers and one carried competitor (C10)."""
+    championship = queries.championship_by_year(NEXT_YEAR)
+    series = queries.categories_of_championship(NEXT_YEAR, team=True)
+    if request.method == "POST":
+        def action():
+            cat_code = required(request.form, "series", "Series")
+            if cat_code not in [s["cat_code"] for s in series]:
+                raise FormError("Please choose a team series.")
+            team_name = required(request.form, "team_name", "Team name")
+            home_country = request.form.get("home_country", "").strip() or None
+            bib = to_int(required(request.form, "bib", "Bib number"), "Bib number", 1, 9999)
+            carriers = [person_from_form(request.form, f"carrier{n}", f"Carrier {n}") for n in (1, 2, 3)]
+            carried = person_from_form(request.form, "carried", "Carried competitor")
+            return updates.register_team(championship["champ_id"], cat_code, team_name, home_country,
+                                         bib, carriers, carried)
+
+        def message(result):
+            _, backpack, _fee = result
+            text = f"Team registered for {NEXT_YEAR}."
+            return text + (f" The carried competitor must wear a {backpack} kg backpack." if backpack else "")
+
+        if run_write(action, message):
+            return redirect(url_for("teams", q=request.form.get("team_name", "").strip()))
+    return render_template("register_team.html", championship=championship, countries=queries.countries(),
+                           series=series, fees=queries.entry_fees(), form=request.form)
 
 
 # ---------- I-2: protests ----------

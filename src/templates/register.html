@@ -1,27 +1,19 @@
 {% extends "base.html" %}
+{% from "_fields.html" import person, fee_table, register_tabs %}
 {% block title %}Register{% endblock %}
-{% macro person(prefix, title) %}
-<fieldset><legend>{{ title }}</legend>
-  <label>First name <input name="{{ prefix }}_first_name" value="{{ form.get(prefix ~ '_first_name', '') }}" required></label>
-  <label>Last name <input name="{{ prefix }}_last_name" value="{{ form.get(prefix ~ '_last_name', '') }}" required></label>
-  <label>Email <input type="email" name="{{ prefix }}_email" value="{{ form.get(prefix ~ '_email', '') }}" required></label>
-  <label>Phone (optional) <input name="{{ prefix }}_phone" value="{{ form.get(prefix ~ '_phone', '') }}"></label>
-  <label>Date of birth <input type="date" name="{{ prefix }}_dob" value="{{ form.get(prefix ~ '_dob', '') }}" required></label>
-  <label>Weigh-in (kg) <input type="number" step="0.1" min="20" max="300" name="{{ prefix }}_weight" value="{{ form.get(prefix ~ '_weight', '') }}" required></label>
-  <label>Gender <select name="{{ prefix }}_gender"><option value="">Prefer not to say</option>{% for v, l in [('F','Female'),('M','Male'),('X','Other')] %}<option value="{{ v }}" {% if form.get(prefix ~ '_gender') == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></label>
-  <label>Country <select name="{{ prefix }}_country" required><option value="">Choose</option>{% for c in countries %}<option value="{{ c.country_code }}" {% if form.get(prefix ~ '_country') == c.country_code %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></label>
-</fieldset>
-{% endmacro %}
 {% block content %}
 <h1>Register for {{ championship.year }}</h1>
-<p class="muted">Championship starts {{ championship.start_date }}. Fee per pair: €55. Carriers must be 18 and carried competitors 17 on the start date. The 40+ series needs a carrier aged 40.</p>
+{{ register_tabs('pair') }}
+<p class="muted">Championship starts {{ championship.start_date }}. Carriers must be 18 and carried competitors 17 on the start date. The 40+ series needs a carrier aged 40.</p>
 <form class="stack" method="post">
   <fieldset><legend>Entry</legend>
-    <label>Series <select name="series" required>{% for s in series %}<option value="{{ s.cat_code }}" {% if form.get('series') == s.cat_code %}selected{% endif %}>{{ s.name }}</option>{% endfor %}</select></label>
+    <label>Series <select name="series" required>{% for s in series %}<option value="{{ s.cat_code }}" {% if form.get('series') == s.cat_code %}selected{% endif %}>{{ s.name }} — €{{ s.entry_fee_eur|int }}</option>{% endfor %}</select></label>
     <label>Bib number <input type="number" min="1" name="bib" value="{{ form.get('bib', '') }}" required></label>
   </fieldset>
-  {{ person('carrier', 'Carrier') }}
-  {{ person('carried', 'Carried competitor') }}
+  {{ person('carrier', 'Carrier', form, countries) }}
+  {{ person('carried', 'Carried competitor', form, countries) }}
   <button>Register</button>
 </form>
+{{ fee_table(fees, highlight=2) }}
+<p class="muted">Registering four people instead? Use <a href="{{ url_for('register_team') }}">team registration</a>.</p>
 {% endblock %}

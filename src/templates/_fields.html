@@ -1,0 +1,30 @@
+{# Shared form fields. Imported by register.html and register_team.html. #}
+{% macro person(prefix, title, form, countries) %}
+<fieldset><legend>{{ title }}</legend>
+  <label>First name <input name="{{ prefix }}_first_name" value="{{ form.get(prefix ~ '_first_name', '') }}" required></label>
+  <label>Last name <input name="{{ prefix }}_last_name" value="{{ form.get(prefix ~ '_last_name', '') }}" required></label>
+  <label>Email <input type="email" name="{{ prefix }}_email" value="{{ form.get(prefix ~ '_email', '') }}" required></label>
+  <label>Phone (optional) <input name="{{ prefix }}_phone" value="{{ form.get(prefix ~ '_phone', '') }}"></label>
+  <label>Date of birth <input type="date" name="{{ prefix }}_dob" value="{{ form.get(prefix ~ '_dob', '') }}" required></label>
+  <label>Weigh-in (kg) <input type="number" step="0.1" min="20" max="300" name="{{ prefix }}_weight" value="{{ form.get(prefix ~ '_weight', '') }}" required></label>
+  <label>Gender <select name="{{ prefix }}_gender"><option value="">Prefer not to say</option>{% for v, l in [('F','Female'),('M','Male'),('X','Other')] %}<option value="{{ v }}" {% if form.get(prefix ~ '_gender') == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></label>
+  <label>Country <select name="{{ prefix }}_country" required><option value="">Choose</option>{% for c in countries %}<option value="{{ c.country_code }}" {% if form.get(prefix ~ '_country') == c.country_code %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></label>
+</fieldset>
+{% endmacro %}
+
+{# C6: the price list, read from RACE_CATEGORY.entry_fee_eur. #}
+{% macro fee_table(fees, highlight=None) %}
+<h2>Entry fees</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Fee</th><th>What it covers</th><th>Series</th></tr></thead>
+<tbody>{% for f in fees %}{% set is_team = f.max_team_size > 2 %}<tr{% if highlight and is_team == (highlight > 2) %} class="fee-current"{% endif %}>
+  <td><strong>€{{ f.entry_fee_eur|int }}</strong></td><td>{{ f.entry_kind }}</td><td>{{ f.series }}</td></tr>{% endfor %}</tbody>
+</table></div>
+{% endmacro %}
+
+{% macro register_tabs(active) %}
+<nav class="tabs" aria-label="Registration type">
+  <a href="{{ url_for('register') }}" {% if active == 'pair' %}class="active"{% endif %}>Pair</a>
+  <a href="{{ url_for('register_team') }}" {% if active == 'team' %}class="active"{% endif %}>Team of four</a>
+</nav>
+{% endmacro %}

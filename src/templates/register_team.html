@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% from "_fields.html" import person, fee_table, register_tabs %}
+{% block title %}Register a team{% endblock %}
+{% block content %}
+<h1>Register a team for {{ championship.year }}</h1>
+{{ register_tabs('team') }}
+{% if series %}
+<p class="muted">Championship starts {{ championship.start_date }}. A team is three carriers and one carried competitor, who takes turns being carried over the course. Carriers must be 18 and the carried competitor 17 on the start date.</p>
+<form class="stack" method="post">
+  <fieldset><legend>Team</legend>
+    <label>Team name <input name="team_name" value="{{ form.get('team_name', '') }}" required></label>
+    <label>Home country <select name="home_country"><option value="">Not published</option>{% for c in countries %}<option value="{{ c.country_code }}" {% if form.get('home_country') == c.country_code %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></label>
+    <label>Series <select name="series" required>{% for s in series %}<option value="{{ s.cat_code }}" {% if form.get('series') == s.cat_code %}selected{% endif %}>{{ s.name }} — €{{ s.entry_fee_eur|int }}</option>{% endfor %}</select></label>
+    <label>Bib number <input type="number" min="1" name="bib" value="{{ form.get('bib', '') }}" required></label>
+  </fieldset>
+  {{ person('carrier1', 'Carrier 1 (starts the leg)', form, countries) }}
+  {{ person('carrier2', 'Carrier 2', form, countries) }}
+  {{ person('carrier3', 'Carrier 3', form, countries) }}
+  {{ person('carried', 'Carried competitor', form, countries) }}
+  <button>Register team</button>
+</form>
+{{ fee_table(fees, highlight=4) }}
+{% else %}
+<p class="flash error">No team series is offered in {{ championship.year }}.</p>
+{% endif %}
+<p class="muted">Registering two people instead? Use <a href="{{ url_for('register') }}">pair registration</a>.</p>
+{% endblock %}

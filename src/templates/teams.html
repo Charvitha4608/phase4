@@ -7,7 +7,8 @@
 </form>
 {% if found is not none %}
   {% if found %}<div class="table-wrap"><table><thead><tr><th>Team</th><th>Home country</th><th>Members listed</th><th>Results stored</th><th>Wins</th></tr></thead>
-  <tbody>{% for t in found %}<tr><td>{{ t.name }}</td><td>{{ t.home_country or 'Not published' }}</td><td>{{ t.listed_members }}</td><td>{{ t.races }}</td><td>{{ t.wins }}</td></tr>{% endfor %}</tbody></table></div>
+  <tbody>{% for t in found %}<tr><td>{{ t.name }}</td><td>{{ t.home_country or 'Not published' }}</td><td>{{ t.listed_members or 'Not published' }}</td><td>{{ t.races }}</td><td>{{ t.wins }}</td></tr>{% endfor %}</tbody></table></div>
   {% else %}<p class="flash error">No team name contains "{{ term }}".</p>{% endif %}
 {% else %}<p class="muted">Search for a team by any part of its name.</p>{% endif %}
+<p class="muted">No roster is published for the team winners before 2026, so those teams show "Not published" rather than a member count. New teams register their four members at <a href="{{ url_for('register_team') }}">team registration</a>.</p>
 {% endblock %}

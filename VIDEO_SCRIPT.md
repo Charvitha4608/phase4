@@ -31,7 +31,7 @@ Say: "This is the Wife Carrying World Championships database, modelled on eukonk
 | 9, 10, 11 | Results menu, Champions and Records: world records, medal table, trend table |
 | 12, 13 | Results menu: Sprint and Main Race, then Officials Report |
 
-## Updates, features 14 to 19 (about 5 min)
+## Updates, features 14 to 20 (about 5 min)
 
 For each one: run the query, do the action in the browser, run the **same** query again.
 
@@ -44,9 +44,27 @@ SELECT p.first_name, p.last_name, r.bib_number, r.carrier_weigh_in_kg, r.carried
 Competitors menu, Register. Series Main Series, bib `500`.
 Carrier: Arjun Rao, arjun@example.com, 1990-01-01, 75 kg, India.
 Carried: Meera Rao, meera@example.com, 1992-01-01, **45** kg, India.
-Press Register. The message shows a 4 kg backpack. The query now shows both weigh-ins stored on the registration, not on the competitor.
+Press Register. The message shows a 4 kg backpack and no longer repeats the fee; the Entry fees table under the form is where the €55 pair price is shown. The query now shows both weigh-ins stored on the registration, not on the competitor.
 
-### 15. File a protest
+### 15. Register a team
+
+```sql
+SELECT t.name, co.name AS home_country, tr.team_role, p.first_name, p.last_name, r.bib_number, r.fee_paid
+  FROM TEAM_ROSTER tr JOIN TEAM t ON t.team_id = tr.team_id
+  LEFT JOIN COUNTRY co ON co.country_code = t.home_country_code
+  JOIN PERSON p ON p.person_id = tr.competitor_id
+  JOIN CHAMPIONSHIP c ON c.champ_id = tr.champ_id
+  LEFT JOIN REGISTRATION r ON r.champ_id = tr.champ_id AND r.cat_code = 'TEAM' AND r.carrier_id = tr.competitor_id
+ WHERE c.year = 2027 AND t.name = 'Team Phase 4';
+```
+
+Competitors menu, Register a team. Team name `Team Phase 4`, home country India, series Team Competition, bib `600`.
+Three carriers and one carried competitor, each with an email of their own.
+Point at the Entry fees table below the form: the team row reads €160, the pair row €55, both read from `RACE_CATEGORY`.
+Press Register team. The page jumps to Teams with the new team found: home country India, **4** members listed.
+The query now shows four roster rows — three CARRIER, one CARRIED — and `fee_paid` 160.00 on the registration.
+
+### 16. File a protest
 
 ```sql
 SELECT protest_seq, status, filed_at, description FROM PROTEST ORDER BY protest_seq;
@@ -56,7 +74,7 @@ Competitors menu, Protests, File a protest. Choose heat "2026 Main Series, final
 Protesting pair: 4. Teemu Tuovinen. Protested pair: 3. Jonatan Wasenius. Reason: `Unrecovered drop at the water obstacle.`
 First set Filed at to **2026-07-04 17:00** and submit to show the rejection. Then set it to **16:35** and submit.
 
-### 16. Correct a finish time
+### 17. Correct a finish time
 
 ```sql
 SELECT r.bib_number, x.finish_time_ms, x.rank_in_heat, x.diff_to_leader_ms FROM RACE_RESULT x JOIN REGISTRATION r ON r.champ_id = x.champ_id AND r.cat_code = x.cat_code AND r.carrier_id = x.carrier_id AND r.carried_id = x.carried_id JOIN CHAMPIONSHIP c ON c.champ_id = x.champ_id WHERE c.year = 2026 AND x.cat_code = 'SPRINT' AND x.heat_number = 3 ORDER BY x.rank_in_heat;
@@ -64,7 +82,7 @@ SELECT r.bib_number, x.finish_time_ms, x.rank_in_heat, x.diff_to_leader_ms FROM 
 
 Officials, Correct a finish time. The page opens on Sprint heat 3. On bib 80, enter `35.00` and press Save. Bib 80 moves to rank 1 and bib 78 to rank 2.
 
-### 17. Decide a protest
+### 18. Decide a protest
 
 ```sql
 SELECT r.bib_number, x.finish_status, x.rank_in_heat FROM RACE_RESULT x JOIN REGISTRATION r ON r.champ_id = x.champ_id AND r.cat_code = x.cat_code AND r.carrier_id = x.carrier_id AND r.carried_id = x.carried_id JOIN CHAMPIONSHIP c ON c.champ_id = x.champ_id WHERE c.year = 2026 AND x.cat_code = 'MAIN' AND r.bib_number IN (62, 49, 42, 47, 44) ORDER BY x.rank_in_heat IS NULL, x.rank_in_heat;
@@ -72,7 +90,7 @@ SELECT r.bib_number, x.finish_status, x.rank_in_heat FROM RACE_RESULT x JOIN REG
 
 Officials, Decide protests. First choose **Demo Timekeeper** and submit to show that only the jury can decide. Then choose **Demo Jury Chair**, Uphold, text `DQ for unrecovered drop`, and submit. Bib 42 becomes DQ and bib 47 moves up to 3.
 
-### 18. Change a carrier
+### 19. Change a carrier
 
 ```sql
 SELECT r.bib_number, r.status, pr.is_active, x.composition_changed FROM REGISTRATION r JOIN PAIR pr ON pr.carrier_id = r.carrier_id AND pr.carried_id = r.carried_id LEFT JOIN RACE_RESULT x ON x.champ_id = r.champ_id AND x.cat_code = r.cat_code AND x.carrier_id = r.carrier_id AND x.carried_id = r.carried_id JOIN CHAMPIONSHIP c ON c.champ_id = r.champ_id WHERE c.year = 2026 AND r.cat_code = 'MAIN' AND r.bib_number IN (49, 900);
@@ -80,7 +98,7 @@ SELECT r.bib_number, r.status, pr.is_active, x.composition_changed FROM REGISTRA
 
 Officials, Change a carrier, 2026. Press Change on bib 49. New carrier: Perttu Saarinen. Bib: `900`. Press Replace pair. Then open Results menu, Champions and Records: Lithuania's silver is gone.
 
-### 19. Delete a championship
+### 20. Delete a championship
 
 ```sql
 SELECT c.year, c.edition_number, (SELECT COUNT(*) FROM RACE_HEAT h WHERE h.champ_id = c.champ_id) AS heats FROM CHAMPIONSHIP c WHERE c.year IN (2020, 2026);

@@ -4,15 +4,15 @@ Working notes, not part of the submission. Everything here needs a person, not m
 
 Anything I find later that doesn't block me gets added under section 0, newest first, instead of chat. If something *does* block me, I'll ask directly in chat instead of writing it here.
 
-## 0. To confirm
+## 0. Schema-revision choices: confirmed
 
-The schema revisions from the "Phase 4 schema revisions" note (points 1–4) are now in `src/schema.sql`, `src/populate.sql` and the app, and are listed in [README.md](README.md#design-changes) as DC-1 to DC-13. These are the choices I made where the note left room. Tick each one or say what to change:
+The schema revisions from the "Phase 4 schema revisions" note (points 1–4) are now in `src/schema.sql`, `src/populate.sql` and the app, and are listed in [README.md](README.md#design-changes) as DC-1 to DC-13. These are the choices I made where the note left room. The team confirmed all five on 13 Nov:
 
-- [ ] **Point 1, one table, not two.** As asked, entry data goes straight into `REGISTRATION`, not into separate `COMPETITOR_ENTRY` and `PAIR_REGISTRATION` tables. `REGISTRATION` now holds bib, `carrier_weigh_in_kg`, `carried_weigh_in_kg`, backpack weight, fee, status, `cancelled_at` and refund. The table keeps its name `REGISTRATION`; it is not renamed to `PAIR_REGISTRATION`.
-- [ ] **Point 1, fee per pair.** `fee_paid` is stored once per pair entry (€55, or €160 for a team), as before, not once per person.
-- [ ] **Point 2, teams with no roster.** The site publishes team rosters only for 2026 (complete) and 2027 (Team USA: one carrier and the carried person so far). Winners from 1996–2025 have no roster. C10 therefore blocks an incomplete roster from racing, but lets a team with no roster rows at all race. Otherwise the historical team winners could not be loaded.
-- [ ] **Point 2, extra team result columns.** `TEAM_RESULT` uses the note's key (`champ_id, cat_code, heat_number, team_id`) and also keeps `bib_number` and `penalty_ms`, because the 2026 results show team bibs and a +15 s penalty.
-- [ ] **Point 4, view rather than triggers.** `rank_in_category` is computed by the view `CATEGORY_RANKING` instead of being stored and kept up to date by triggers, so U-1 and U-3 can never leave it stale. A Sprint pair that didn't reach the final ranks behind all finalists, ordered by qualifying time.
+- [x] **Point 1, one table, not two.** As asked, entry data goes straight into `REGISTRATION`, not into separate `COMPETITOR_ENTRY` and `PAIR_REGISTRATION` tables. `REGISTRATION` now holds bib, `carrier_weigh_in_kg`, `carried_weigh_in_kg`, backpack weight, fee, status, `cancelled_at` and refund. The table keeps its name `REGISTRATION`; it is not renamed to `PAIR_REGISTRATION`.
+- [x] **Point 1, fee per pair.** `fee_paid` is stored once per pair entry (€55, or €160 for a team), as before, not once per person.
+- [x] **Point 2, teams with no roster.** The site publishes team rosters only for 2026 (complete) and 2027 (Team USA: one carrier and the carried person so far). Winners from 1996–2025 have no roster. C10 therefore blocks an incomplete roster from racing, but lets a team with no roster rows at all race. Otherwise the historical team winners could not be loaded.
+- [x] **Point 2, extra team result columns.** `TEAM_RESULT` uses the note's key (`champ_id, cat_code, heat_number, team_id`) and also keeps `bib_number` and `penalty_ms`, because the 2026 results show team bibs and a +15 s penalty.
+- [x] **Point 4, view rather than triggers.** `rank_in_category` is computed by the view `CATEGORY_RANKING` instead of being stored and kept up to date by triggers, so U-1 and U-3 can never leave it stale. A Sprint pair that didn't reach the final ranks behind all finalists, ordered by qualifying time.
 
 ## 1. Demo data: decided
 
@@ -42,12 +42,12 @@ I tested against a private MySQL 8.4.9 server with no password, and against save
 
 - [ ] **Your own MySQL.** The schema changed, so run both setup commands in the README again (`schema.sql`, then `populate.sql`). If you get an error, paste it here or in chat.
 - [ ] **A few results by eye.** Open eukonkanto.fi/en/results/ next to the app's `/results` page and compare 3–4 rows per series. For the Team Competition, also check the four names per team and which one is marked "(carried)".
-- [ ] **All 19 features**, clicking through yourself rather than reading my test output. Feature 14 (Register) now rejects weigh-ins outside 20–300 kg.
+- [ ] **All 20 features**, clicking through yourself rather than reading my test output. Feature 14 (Register a pair) now rejects weigh-ins outside 20–300 kg. Feature 15 (Register a team) is new: it needs three carriers and one carried competitor, and books the €160 team fee.
 - [ ] **The video timing.** Do one full timed run-through using [VIDEO_SCRIPT.md](VIDEO_SCRIPT.md). Features 2, 4 and 14 have small additions. Tell me if it runs over 10 minutes.
 
 ## 4. Known gaps (no action needed, just be ready to explain them)
 
 - Medal table counts gold only before 2026 (the site doesn't publish silver/bronze for older years).
 - Finish-time trend has a real average for 2026 only; other years show one record time or nothing.
-- C10 cannot be checked for team winners from 1996–2025, because their rosters aren't published (see section 0).
+- C10 cannot be checked for team winners from 1996–2025, because their rosters aren't published (confirmed in section 0).
 - C8 (footwear inspection) and the 60-minute decision target in U-3 are not enforced in SQL. The reasons are in the README's Constraint enforcement section.

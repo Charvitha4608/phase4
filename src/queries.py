@@ -84,8 +84,26 @@ def team_results(year):
 
 def categories():
     return fetch_all("SELECT cat_code, name, distance_m, min_weight_carried_kg, has_water_obstacle, "
-                     "has_dry_obstacles, max_team_size, min_age_carrier, min_age_carried "
+                     "has_dry_obstacles, max_team_size, min_age_carrier, min_age_carried, entry_fee_eur "
                      "FROM RACE_CATEGORY ORDER BY FIELD(cat_code, 'MAIN', 'WOMEN', 'M40', 'SPRINT', 'TEAM')")
+
+
+def entry_fees():
+    """C6: the price list, grouped by what an entry buys.
+
+    A pair category is one fee per pair of two; the team category is one fee per
+    team of four. The register pages read the price from here, so a fee is never
+    typed in by hand and never drifts from RACE_CATEGORY.
+    """
+    sql = """SELECT cat.entry_fee_eur,
+                    CASE WHEN cat.max_team_size > 2 THEN 'Team of four' ELSE 'Pair' END AS entry_kind,
+                    cat.max_team_size,
+                    GROUP_CONCAT(cat.name ORDER BY FIELD(cat.cat_code, 'MAIN', 'WOMEN', 'M40', 'SPRINT', 'TEAM')
+                                 SEPARATOR ', ') AS series
+               FROM RACE_CATEGORY cat
+              GROUP BY cat.entry_fee_eur, entry_kind, cat.max_team_size
+              ORDER BY cat.entry_fee_eur"""
+    return fetch_all(sql)
 
 
 def years_with_results(cat_code):
@@ -351,13 +369,16 @@ def countries():
     return fetch_all("SELECT country_code, name FROM COUNTRY ORDER BY name")
 
 
-def categories_of_championship(year):
-    sql = """SELECT cat.cat_code, cat.name FROM HAS_CATEGORY hc
+def categories_of_championship(year, team=False):
+    """Categories a championship offers. Pair categories by default, team ones with team=True."""
+    sql = """SELECT cat.cat_code, cat.name, cat.entry_fee_eur, cat.max_team_size,
+                    cat.min_age_carrier, cat.min_age_carried
+               FROM HAS_CATEGORY hc
                JOIN RACE_CATEGORY cat ON cat.cat_code = hc.cat_code
                JOIN CHAMPIONSHIP ch ON ch.champ_id = hc.champ_id
-              WHERE ch.year = %s AND cat.max_team_size = 2
-              ORDER BY FIELD(cat.cat_code, 'MAIN', 'WOMEN', 'M40', 'SPRINT')"""
-    return fetch_all(sql, (year,))
+              WHERE ch.year = %s AND cat.max_team_size {} 2
+              ORDER BY FIELD(cat.cat_code, 'MAIN', 'WOMEN', 'M40', 'SPRINT', 'TEAM')"""
+    return fetch_all(sql.format(">" if team else "="), (year,))
 
 
 def protestable_heats():

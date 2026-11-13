@@ -50,12 +50,16 @@ CREATE TABLE RACE_CATEGORY (
     max_team_size         TINYINT      NOT NULL,
     min_age_carrier       TINYINT      NOT NULL,
     min_age_carried       TINYINT      NOT NULL,
+    entry_fee_eur         DECIMAL(6,2) NOT NULL,                  -- C6, per category
     PRIMARY KEY (cat_code),
     CONSTRAINT uq_category_name UNIQUE (name),
     CONSTRAINT chk_cat_distance CHECK (distance_m > 0),
     CONSTRAINT chk_cat_weight   CHECK (min_weight_carried_kg > 0),
     CONSTRAINT chk_cat_team     CHECK (max_team_size >= 2),
-    CONSTRAINT chk_cat_ages     CHECK (min_age_carrier >= 18 AND min_age_carried >= 17)
+    CONSTRAINT chk_cat_ages     CHECK (min_age_carrier >= 18 AND min_age_carried >= 17),
+    -- C6: the two published prices. A pair category costs 55, a team category 160,
+    -- so REGISTRATION.fee_paid is read from here instead of being typed in.
+    CONSTRAINT chk_cat_fee      CHECK (entry_fee_eur IN (55, 160))
 );
 
 -- ---------------------------------------------------------------------------
@@ -467,12 +471,12 @@ FOR EACH ROW
 BEGIN
     DECLARE v_start DATE;
     DECLARE v_min_carrier, v_min_carried TINYINT;
-    DECLARE v_min_weight DECIMAL(5,2);
+    DECLARE v_min_weight, v_fee DECIMAL(5,2);
     DECLARE v_dob_carrier, v_dob_carried DATE;
 
     SELECT start_date INTO v_start FROM CHAMPIONSHIP WHERE champ_id = NEW.champ_id;
-    SELECT min_age_carrier, min_age_carried, min_weight_carried_kg
-      INTO v_min_carrier, v_min_carried, v_min_weight
+    SELECT min_age_carrier, min_age_carried, min_weight_carried_kg, entry_fee_eur
+      INTO v_min_carrier, v_min_carried, v_min_weight, v_fee
       FROM RACE_CATEGORY WHERE cat_code = NEW.cat_code;
     SELECT date_of_birth INTO v_dob_carrier FROM PERSON WHERE person_id = NEW.carrier_id;
     SELECT date_of_birth INTO v_dob_carried FROM PERSON WHERE person_id = NEW.carried_id;
@@ -487,6 +491,11 @@ BEGIN
     END IF;
     IF NEW.carried_weigh_in_kg IS NOT NULL THEN                                  -- C3
         SET NEW.backpack_weight_kg = GREATEST(v_min_weight - NEW.carried_weigh_in_kg, 0);
+    END IF;
+    -- C6: the fee belongs to the category, not to the person entering it.
+    -- Imported rows leave it NULL (DC-9); anything else must match the price list.
+    IF NEW.fee_paid IS NOT NULL AND NEW.fee_paid <> v_fee THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'The fee paid does not match the entry fee for this category.';
     END IF;
 END //
 

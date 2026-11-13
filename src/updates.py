@@ -54,13 +54,33 @@ def _find_or_create_competitor(cur, person):
     return person_id
 
 
+def _category_fee(cur, cat_code, max_team_size=None):
+    """C6: the entry fee of a category, as RACE_CATEGORY publishes it.
+
+    The fee is never passed in from a form, so a registration cannot be booked at
+    the wrong price. max_team_size, when given, is the size the caller is
+    registering for, which keeps a team out of a pair category and the reverse.
+    """
+    cur.execute("SELECT entry_fee_eur, max_team_size FROM RACE_CATEGORY WHERE cat_code = %s", (cat_code,))
+    row = cur.fetchone()
+    if row is None:
+        raise FormError("That series does not exist.")
+    if max_team_size == 2 and row["max_team_size"] > 2:
+        raise FormError("That is a team series. Please use the team registration form.")
+    if max_team_size and max_team_size > 2 and row["max_team_size"] <= 2:
+        raise FormError("That is a pair series. Please use the pair registration form.")
+    return row["entry_fee_eur"]
+
+
 def register_pair(champ_id, cat_code, bib_number, carrier, carried):
     """I-1: register a pair. Returns the backpack weight set by the trigger.
 
     Weigh-ins are stored on the registration, not on the person, so each
-    championship keeps its own weights (DC-1, DC-2).
+    championship keeps its own weights (DC-1, DC-2). The fee comes from the
+    category (C6), not from the form.
     """
     with transaction() as cur:
+        fee = _category_fee(cur, cat_code, max_team_size=2)
         carrier_id = _find_or_create_competitor(cur, carrier)
         carried_id = _find_or_create_competitor(cur, carried)
         cur.execute("""
@@ -73,14 +93,82 @@ def register_pair(champ_id, cat_code, bib_number, carrier, carried):
         cur.execute("""
             INSERT INTO REGISTRATION (champ_id, cat_code, carrier_id, carried_id, bib_number,
                                       carrier_weigh_in_kg, carried_weigh_in_kg, fee_paid, status, registered_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, 55, 'CONFIRMED', NOW())""",
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'CONFIRMED', NOW())""",
                     (champ_id, cat_code, carrier_id, carried_id, bib_number,
-                     carrier["weight_kg"], carried["weight_kg"]))
+                     carrier["weight_kg"], carried["weight_kg"], fee))
         cur.execute("""
             SELECT backpack_weight_kg FROM REGISTRATION
              WHERE champ_id = %s AND cat_code = %s AND carrier_id = %s AND carried_id = %s""",
                     (champ_id, cat_code, carrier_id, carried_id))
         return cur.fetchone()["backpack_weight_kg"]
+
+
+def register_team(champ_id, cat_code, team_name, home_country, bib_number, carriers, carried):
+    """I-1 (team): register a team of four in a team category.
+
+    C10 wants exactly three carriers and one carried competitor, so TEAM_ROSTER
+    gets four rows and the roster triggers enforce the shape. The entry itself
+    goes in REGISTRATION like any other, under the pair of the first carrier and
+    the carried competitor: that is the pair that holds the bib (C4), the
+    weigh-ins and the team fee (C6). The other two carriers are on the roster.
+
+    Returns (team_id, backpack_weight_kg, fee).
+    """
+    if len(carriers) != 3:
+        raise FormError("A team needs exactly three carriers.")
+    with transaction() as cur:
+        fee = _category_fee(cur, cat_code, max_team_size=4)
+
+        cur.execute("SELECT team_id, home_country_code FROM TEAM WHERE name = %s FOR UPDATE", (team_name,))
+        team = cur.fetchone()
+        if team is None:
+            cur.execute("""
+                INSERT INTO TEAM (name, founded_year, home_country_code) VALUES (%s, YEAR(CURDATE()), %s)""",
+                        (team_name, home_country))
+            team_id = cur.lastrowid
+        else:
+            team_id = team["team_id"]
+            cur.execute("""
+                SELECT 1 FROM TEAM_ROSTER WHERE champ_id = %s AND team_id = %s""", (champ_id, team_id))
+            if cur.fetchone():
+                raise FormError(f'"{team_name}" already has a roster for this championship.')
+            if team["home_country_code"] is None and home_country:
+                cur.execute("UPDATE TEAM SET home_country_code = %s WHERE team_id = %s", (home_country, team_id))
+
+        carrier_ids = [_find_or_create_competitor(cur, person) for person in carriers]
+        carried_id = _find_or_create_competitor(cur, carried)
+        if len(set(carrier_ids + [carried_id])) != 4:
+            raise FormError("A team needs four different people.")
+
+        for person_id in carrier_ids:
+            cur.execute("""
+                INSERT INTO TEAM_ROSTER (champ_id, team_id, competitor_id, team_role)
+                VALUES (%s, %s, %s, 'CARRIER')""", (champ_id, team_id, person_id))
+        cur.execute("""
+            INSERT INTO TEAM_ROSTER (champ_id, team_id, competitor_id, team_role)
+            VALUES (%s, %s, %s, 'CARRIED')""", (champ_id, team_id, carried_id))
+
+        lead_carrier_id = carrier_ids[0]
+        cur.execute("""
+            INSERT INTO PAIR (carrier_id, carried_id, formed_year, is_active) VALUES (%s, %s, YEAR(CURDATE()), TRUE)
+            ON DUPLICATE KEY UPDATE is_active = TRUE""", (lead_carrier_id, carried_id))
+        for code in {home_country, carried["country"], *(p["country"] for p in carriers)}:
+            if code:
+                cur.execute("""
+                    INSERT INTO REPRESENTS (carrier_id, carried_id, country_code) VALUES (%s, %s, %s)
+                    ON DUPLICATE KEY UPDATE country_code = VALUES(country_code)""",
+                            (lead_carrier_id, carried_id, code))
+        cur.execute("""
+            INSERT INTO REGISTRATION (champ_id, cat_code, carrier_id, carried_id, bib_number,
+                                      carrier_weigh_in_kg, carried_weigh_in_kg, fee_paid, status, registered_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'CONFIRMED', NOW())""",
+                    (champ_id, cat_code, lead_carrier_id, carried_id, bib_number,
+                     carriers[0]["weight_kg"], carried["weight_kg"], fee))
+        cur.execute("""
+            SELECT backpack_weight_kg FROM REGISTRATION
+             WHERE champ_id = %s AND cat_code = %s AND carrier_id = %s AND carried_id = %s""",
+                    (champ_id, cat_code, lead_carrier_id, carried_id))
+        return team_id, cur.fetchone()["backpack_weight_kg"], fee
 
 
 def file_protest(champ_id, cat_code, heat_number, filed_at, filer, against, description):

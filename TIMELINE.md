@@ -13,7 +13,7 @@ Written 11 Nov, 15:32. About 31.5 hours left. Split into 4 tracks so all of you 
 
 1. Run the setup commands in `README.md` on your own machine, with your own MySQL password. The schema changed on 13 Nov (points 1–4 of the schema revisions), so rerun `schema.sql` and `populate.sql` even if you loaded them before.
 2. Confirm the app starts and `/` loads in a browser.
-3. Click through all 19 numbered features in the README's Feature list, in order, confirming each does what it says.
+3. Click through all 20 numbered features in the README's Feature list, in order, confirming each does what it says. Feature 15 (Register a team) is new, as are the per-category fee tables on both register pages.
 4. Check off `team_review.md` section 3's first and third items.
 
 **Report back:** any error message, exactly as shown, plus which step it happened on.
@@ -30,11 +30,11 @@ Written 11 Nov, 15:32. About 31.5 hours left. Split into 4 tracks so all of you 
 ## Track 3 — Design sign-off
 
 1. Read the Design Changes table in `README.md` (DC-1 through DC-13) and the Constraint enforcement table.
-2. Section 2 of `team_review.md` is signed off. Demo data is decided, and so are DC-1, DC-2, DC-10 and schema-revision points 2–4. As a team, tick or reject the five open choices in `team_review.md` section 0.
+2. Sections 0 and 2 of `team_review.md` are signed off: demo data, DC-1, DC-2, DC-10, schema-revision points 2–4, and the five choices in section 0. Nothing is left to decide.
 3. Optional: send the TA message in `team_review.md` section 1. The demo-data decision no longer waits on the reply.
 4. Read `src/queries.py` and `src/updates.py` enough that any of you could explain one query if asked. Also read the `CATEGORY_RANKING` view and the C10 triggers at the end of `src/schema.sql`.
 
-**Report back:** anything in section 0 your team disagrees with.
+**Report back:** only if someone changes their mind about a signed-off item.
 
 ## Track 4 — Video rehearsal (whoever will present or run the terminal)
 
@@ -48,7 +48,7 @@ Written 11 Nov, 15:32. About 31.5 hours left. Split into 4 tracks so all of you 
 
 | By | What's done if you've hit it |
 |---|---|
-| **Today, 19:00** | Tracks 1–3 finished. `team_review.md` sections 0 and 3 fully checked off. You know the app works on real infrastructure, matches the site, and the team has agreed on every design choice. |
+| **Today, 19:00** | Tracks 1–3 finished. `team_review.md` section 3 fully checked off. You know the app works on real infrastructure, matches the site, and the team has agreed on every design choice. |
 | **Today, 22:00** | Track 4 finished. You know the real recording will fit in 10 minutes and who does what on camera. |
 | **Tomorrow, 11:00** | `41.mp4` recorded and saved in the `phase 4` folder, following the (now-rehearsed) script. |
 | **Tomorrow, 15:00** | `./package.sh` run, `41.zip` produced, its file listing checked against the structure in `README.md`. |

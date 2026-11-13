@@ -37,12 +37,14 @@ INSERT INTO VENUE (venue_id, name, street, city, postal_code, country_code, capa
 INSERT INTO ORGANISER (organiser_id, name, legal_form, founded_year) VALUES
   (1, 'Sonkajärven Eukonkanto Oy', 'Oy', NULL);
 
-INSERT INTO RACE_CATEGORY (cat_code, name, distance_m, min_weight_carried_kg, has_water_obstacle, has_dry_obstacles, max_team_size, min_age_carrier, min_age_carried) VALUES
-  ('MAIN', 'Main Series', 253.5, 49, TRUE, TRUE, 2, 18, 17),
-  ('SPRINT', 'Sprint', 120, 49, TRUE, FALSE, 2, 18, 17),
-  ('WOMEN', 'Women''s Main Series', 253.5, 49, TRUE, TRUE, 2, 18, 17),
-  ('M40', 'Senior Series 40+', 253.5, 49, TRUE, TRUE, 2, 40, 17),
-  ('TEAM', 'Team Competition', 253.5, 49, TRUE, TRUE, 4, 18, 17);
+-- entry_fee_eur: the published price per category (C6). Every pair category
+-- costs EUR 55 per pair; the team category costs EUR 160 per team of four.
+INSERT INTO RACE_CATEGORY (cat_code, name, distance_m, min_weight_carried_kg, has_water_obstacle, has_dry_obstacles, max_team_size, min_age_carrier, min_age_carried, entry_fee_eur) VALUES
+  ('MAIN', 'Main Series', 253.5, 49, TRUE, TRUE, 2, 18, 17, 55),
+  ('SPRINT', 'Sprint', 120, 49, TRUE, FALSE, 2, 18, 17, 55),
+  ('WOMEN', 'Women''s Main Series', 253.5, 49, TRUE, TRUE, 2, 18, 17, 55),
+  ('M40', 'Senior Series 40+', 253.5, 49, TRUE, TRUE, 2, 40, 17, 55),
+  ('TEAM', 'Team Competition', 253.5, 49, TRUE, TRUE, 4, 18, 17, 160);
 
 INSERT INTO PERSON (person_id, first_name, last_name, email, gender, date_of_birth, role_type, nationality_code) VALUES
   (1, 'Jonatan', 'Wasenius', NULL, NULL, NULL, 'COMPETITOR', 'FIN'),
@@ -468,23 +470,26 @@ INSERT INTO PERSON_PHONE (person_id, phone_number) VALUES
   (201, '+358 00 000 0002'),
   (202, '+358 00 000 0003');
 
+-- home_country_code is the country the team enters under. For the 2026 teams it
+-- is the country of the roster; for the earlier winners it is the country the
+-- team is named for (a Finnish police district, a Finnish firm, an Estonian club).
 INSERT INTO TEAM (team_id, name, founded_year, home_country_code, parent_team_id) VALUES
-  (1, 'Team Beer for my Horses', NULL, NULL, NULL),
+  (1, 'Team Beer for my Horses', NULL, 'USA', NULL),
   (2, 'Team Big Beef', NULL, 'FIN', NULL),
-  (3, 'Team 2 SPOLK', NULL, NULL, NULL),
+  (3, 'Team 2 SPOLK', NULL, 'FIN', NULL),
   (4, 'MTK Sonkajärven maaseutunuoret', NULL, 'FIN', NULL),
   (5, 'Sonkajärven kunta', NULL, 'FIN', NULL),
   (6, 'Tulitaistelijat P121', NULL, 'FIN', NULL),
   (7, 'Sakkyn toivot', NULL, 'FIN', NULL),
-  (8, 'Ylä-Savon kihlakunnan poliisit', NULL, NULL, NULL),
-  (9, 'Iisalmen Putkiasennus Oy', NULL, NULL, NULL),
+  (8, 'Ylä-Savon kihlakunnan poliisit', NULL, 'FIN', NULL),
+  (9, 'Iisalmen Putkiasennus Oy', NULL, 'FIN', NULL),
   (10, 'Väike-Maarja Vald', NULL, 'EST', NULL),
   (11, 'Äntu Farm', NULL, 'EST', NULL),
   (12, 'Sõbrad', NULL, 'EST', NULL),
   (13, 'Konkurendid', NULL, 'EST', NULL),
-  (14, 'Sonkarun', NULL, NULL, NULL),
-  (15, 'Serti', NULL, NULL, NULL),
-  (16, 'Maailmanmestaruuden metsästäjät', NULL, NULL, NULL),
+  (14, 'Sonkarun', NULL, 'FIN', NULL),
+  (15, 'Serti', NULL, 'EST', NULL),
+  (16, 'Maailmanmestaruuden metsästäjät', NULL, 'FIN', NULL),
   (17, 'Team Australia', NULL, 'AUS', NULL),
   (18, 'Team USA', NULL, 'USA', NULL);
 
