@@ -102,7 +102,7 @@ Numbers match the order of the video. Phase 1 requirement numbers are in bracket
 3. **Race statistics** (3.1.3). `/results`, the four boxes above the table. Changes with the series and year. Shows fastest, average and slowest time, and pairs with no drop.
 4. **Team results.** `/results?series=TEAM`. Open the Team Competition tab. Shows teams, that year's roster (three carriers and the carried competitor), time, gap and penalties.
 5. **Carriers by series** (3.1.2). `/competitors`, "Carriers in the 2026 championship". Choose a series and press Show. Lists carrier names and countries once each.
-6. **Athlete search** (3.1.4). `/competitors?q=...`. Type part of a last name and press Search. Shows matching athletes, nationality, races and best rank.
+6. **Athlete search** (3.1.4). `/competitors?q=...`. Type part of a first name, last name, or full name and press Search. Shows matching athletes, nationality, races and best rank.
 7. **Team search** (3.1.5). `/teams?q=...`. Type part of a team name and press Search. Shows matching teams, country, members, results and wins.
 8. **2027 registered competitors.** `/competitors#registered`. Lists confirmed registrations by series.
 9. **World records.** `/results/champions-and-records`. Shows the fastest stored time in each series.
@@ -115,8 +115,8 @@ Programme, Track and Rules, Official Grand Prix, Contact and Media and Accredita
 
 **Updates**
 
-14. **Register a pair** (I-1, create). `/register`. Fill in the form and press Register. Creates the people, the pair and the 2027 registration with both weigh-ins, and sets a backpack weight if the carried competitor weighs under 49 kg.
-15. **Register a team** (I-1, create). `/register/team`, or the "Team of four" tab on the register page. Fill in the team name, home country, bib and four people, and press Register team. Creates or reuses the team, writes the roster of three carriers and one carried competitor (C10) and the 2027 team registration at the €160 team fee (C6, DC-14, DC-15). Both register pages show the fee per category and no longer state the fee in the confirmation message.
+14. **Register a pair** (I-1, create). `/register`. Fill in the form and press Register. Automatically assigns the next available unique bib number, validates constraints (C1, C4, C6, C12), creates the people, pair and registration with weigh-ins, calculates backpack weight if the carried competitor is under 49 kg, and dispatches a confirmation email.
+15. **Register a team** (I-1, create). `/register/team`, or the "Team of four" tab on the register page. Fill in the team name, home country and four people, and press Register team. Automatically assigns the next available unique bib number, creates or reuses the team, writes the roster of three carriers and one carried competitor (C10), books the €160 team fee (C6), and dispatches a confirmation email.
 16. **File a protest** (I-2, create). `/protests/new`. Choose a heat and press Choose heat, complete the form and press File protest. Rejected outside the 15-minute window.
 17. **Correct a finish time** (U-1, update). `/officials/results`. Choose a heat, enter a new time on a row and press Save. Recalculates rank and gap for the heat and puts the pair's pending protests under review.
 18. **Decide a protest** (U-3, update). `/officials/protests`. Choose a jury official and outcome, and press Record decision. Upholding disqualifies the pair and recalculates the heat.
@@ -124,6 +124,60 @@ Programme, Track and Rules, Official Grand Prix, Contact and Media and Accredita
 20. **Delete a championship** (D-1, delete). `/officials/championships`. Enter a name and reason and press Delete. Rejected if records still refer to the championship, and logged on success.
 
 The officials' area has no login, since accounts are not part of the functional requirements.
+
+## Phase 4 Functional Requirements & Operation Verification
+
+All Phase 4 functional requirements, database operations, and integrity constraints are fully implemented and verified:
+
+### 1. Competitor Search
+- **Full Name Search**: In `/competitors`, the athlete search (`queries.search_athletes`) searches across first name, last name, and full name in either order (`CONCAT_WS(' ', first_name, last_name)` and `CONCAT_WS(' ', last_name, first_name)`). Searching *"Taisto"*, *"Miettinen"*, or *"Taisto Miettinen"* all return the matching competitor.
+
+### 2. Database Modification Operations
+
+#### **I-1: Register a New Competitor (2027 Championship)**
+- **Entities Created**: `PERSON`, `COMPETITOR`, `PAIR`, `REPRESENTS`, and `REGISTRATION`.
+- **Automatic Bib Assignment**: The system assigns `MAX(bib_number) + 1` atomically inside the transaction using `FOR UPDATE`. Manual bib entry has been removed from the UI.
+- **Constraints Enforced**:
+  - **C1**: Carrier age must be $\ge 18$ on the championship start date (`2027-07-02`), enforced in application logic and by trigger `trg_registration_rules`.
+  - **C4**: Unique bib number within `(champ_id, cat_code)` enforced by `uq_reg_bib`.
+  - **C12**: Referential integrity on `COUNTRY` foreign keys (`nationality_code` and `country_code`).
+  - **C6**: Individual registration fee €55 read from `RACE_CATEGORY.entry_fee_eur` and guarded by trigger.
+- **External Action**: Dispatches an email notification via `send_confirmation_email(...)` recorded in `EMAIL_OUTBOX`.
+
+#### **I-2: File a Protest Against a Race Result**
+- **Record Created**: `PROTEST` with championship, sequence number, filing pair, opposing pair, heat, and fee.
+- **Constraints Enforced**:
+  - **C5**: Must be submitted within 15 minutes of the maximum heat finish time (`heat_completed_at`). Submissions outside the window are rejected with `PROTEST_WINDOW_EXPIRED`.
+  - **C6**: Protest fee is exactly €150 non-refundable (`chk_protest_fee`).
+  - **C13**: Both pairs must have participated in the protested heat (`PARTICIPATES_IN`).
+  - **C12**: Both pairs must exist in `PAIR`.
+- **Status & Flagging**: Created with status `PENDING`, which automatically flags the heat result with `<span class="chip warn">Under protest</span>` in race result views until decided by the jury.
+
+#### **U-1: Correct a Race Result Finish Time**
+- **Rankings Recalculated**: `rank_in_heat` and `diff_to_leader_ms` are recomputed for all finishers in that heat via `_recompute_heat`. Overall `rank_in_category` across all heats recalculates dynamically via the `CATEGORY_RANKING` view.
+- **Sprint Final Qualifiers & Displaced Pair Notifications**: If a timing correction in a Sprint qualifying heat changes the top 4 qualifiers, displaced pairs are identified and queued for notification via `queue_notification(..., "DISPLACED_FROM_FINAL")`.
+- **Pending Protests**: Any pending protest involving the modified pair is automatically updated to `UNDER_REVIEW`.
+- **Integrity**: Enforces positive finish time ($> 0$) and checks C12 and C5.
+
+#### **U-2: Change a Competitor's Role from CARRIER to CARRIED**
+- **Pair Invalidation & New Pair**: Inactive status (`is_active = FALSE`) set on the former pair; registration marked as `REPLACED`; new `PAIR` created for the replacement carrier.
+- **Archive & Medal Exclusion**: Sets `composition_changed = TRUE` on former `RACE_RESULT` entries. Results remain visible in archives with a `"Pair changed"` tag, but are excluded from medal aggregation in `queries.medal_table`.
+- **Weight & Backpack (C3)**: The former carrier's weigh-in moves to carried position; `backpack_weight_kg` is automatically calculated (`GREATEST(49 - weight, 0)`).
+- **Team Composition (C10)**: Updates `TEAM_ROSTER` when applicable, ensuring the team maintains 3 carriers and 1 carried competitor.
+- **Constraints Checked**: C9 (carrier $
+eq$ carried), C2 (carried age $\ge 17$), C1 (new carrier age $\ge 18$), and C10.
+
+#### **U-3: Jury Upholds a Protest**
+- **Decision Record**: Inserts a `PROTEST_DECISION` with `decision_text`, `decided_by` (official ID), `decided_at = NOW()`, and `decision_outcome = 'UPHELD'`.
+- **Disqualification & Recalculation**: Sets protested pair's `finish_status = 'DQ'`. Calls `_recompute_heat` to recalculate positions. Category rankings recalculate dynamically.
+- **Promotions & Notifications**: Automatically identifies newly promoted pairs and dispatches notifications via `queue_notification(..., "PROMOTED_IN_HEAT")`. Podium promotions immediately update the Main Race Medal Table.
+- **Non-Refundable Fee**: Sourced fee remains paid (€150).
+- **Constraints Checked**: C13 (verifies official holds `JURY` role), C5 (checks 60-minute SLA), and C12.
+
+#### **D-1: Delete a Cancelled Championship**
+- **Dependency Checks**: Verified before deletion that no dependent records exist (`RACE_HEAT`, `PROTEST`, `REGISTRATION`, `SPONSORS`, `ACCREDITS`, `TEAM_ROSTER`). If any exist, deletion is halted with an instructional message to archive the edition instead.
+- **Placeholder Deletion**: Allows clean deletion of unheld/cancelled placeholder championships (such as the 2020 edition).
+- **Audit Logging**: Logs every deletion into `CHAMPIONSHIP_DELETION_LOG` recording `champ_id`, `year`, `deleted_by`, `deleted_at`, and `reason`.
 
 ## Use of Generative AI
 
