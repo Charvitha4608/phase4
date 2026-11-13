@@ -3,5 +3,11 @@
 {% block content %}
 <h1>Contact</h1>
 <div class="cards"><article class="card"><p class="eyebrow">Wife Carrying office</p>
-<h3>Sonkajärven Eukonkanto Oy</h3><p>Lyseotie 1, 74300 Sonkajärvi<br>+358 45 129 0505<br>toimisto@eukonkanto.fi</p></article></div>
+<h3>{{ organiser.name if organiser else 'Sonkajärven Eukonkanto Oy' }}</h3>
+<p>
+  {% if organiser.legal_form %}<span class="muted">Legal form: {{ organiser.legal_form }}</span><br>{% endif %}
+  Lyseotie 1, 74300 Sonkajärvi<br>
+  +358 45 129 0505<br>
+  toimisto@eukonkanto.fi
+</p></article></div>
 {% endblock %}

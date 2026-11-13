@@ -191,7 +191,7 @@ def home():
 
 @app.route("/programme")
 def programme():
-    return render_template("programme.html")
+    return render_template("programme.html", venue=queries.venue_for_year(LATEST_YEAR))
 
 
 @app.route("/track-and-rules")
@@ -201,7 +201,7 @@ def rules():
 
 @app.route("/contact")
 def contact():
-    return render_template("contact.html")
+    return render_template("contact.html", organiser=queries.organiser_info())
 
 
 @app.route("/official-grand-prix")
@@ -211,7 +211,7 @@ def grand_prix():
 
 @app.route("/accreditation-press")
 def press():
-    return render_template("press.html")
+    return render_template("press.html", outlets=queries.accredited_media(LATEST_YEAR), year=LATEST_YEAR)
 
 
 @app.route("/results")
@@ -446,6 +446,18 @@ def officials_championships():
         return redirect(url_for("officials_championships"))
     return render_template("officials_championships.html", rows=queries.championships_overview(),
                            log=queries.deletion_log())
+
+
+
+@app.route("/officials/registrations/<int:champ_id>/<cat_code>/<int:carrier_id>/<int:carried_id>/cancel",
+           methods=["POST"])
+def officials_cancel_registration(champ_id, cat_code, carrier_id, carried_id):
+    def action():
+        return updates.cancel_registration(champ_id, cat_code, carrier_id, carried_id)
+
+    run_write(action, lambda refund: f"Registration cancelled. Refund due: €{refund:.2f}" if refund else "Registration cancelled. No refund due (<30 days before event).")
+    year = request.form.get("year", LATEST_YEAR)
+    return redirect(url_for("officials_registrations", year=year))
 
 
 if __name__ == "__main__":

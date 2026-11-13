@@ -12,4 +12,22 @@
   <li>Arrival date and time, and the names of everyone in your group</li>
 </ul>
 <p>Send to <a href="mailto:toimisto@eukonkanto.fi">toimisto@eukonkanto.fi</a></p></article>
+
+{% if outlets %}
+<h2>Accredited media outlets ({{ year }})</h2>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Media Outlet</th><th>Country</th><th>Drone permission</th></tr></thead>
+    <tbody>
+      {% for o in outlets %}
+      <tr>
+        <td><strong>{{ o.name }}</strong></td>
+        <td>{{ o.country or 'International' }}</td>
+        <td>{% if o.drone_permission %}<span class="chip">Granted</span>{% else %}<span class="muted">No</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
 {% endblock %}

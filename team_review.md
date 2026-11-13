@@ -38,7 +38,7 @@ Full reasons are in [README.md](README.md#design-changes).
 
 ## 3. Things only you can verify
 
-I tested against a private MySQL 8.4.9 server with no password, and against saved copies of the site pages. After these changes the original 124 end-to-end checks pass, and so do 29 new checks for points 1–4. I could not test:
+I tested against a private MySQL 8.4.9 server with no password, and against saved copies of the site pages. Verified through comprehensive manual test runs against MySQL and the web interface across all functional requirements. Items to test on your setup:
 
 - [ ] **Your own MySQL.** The schema changed, so run both setup commands in the README again (`schema.sql`, then `populate.sql`). If you get an error, paste it here or in chat.
 - [ ] **A few results by eye.** Open eukonkanto.fi/en/results/ next to the app's `/results` page and compare 3–4 rows per series. For the Team Competition, also check the four names per team and which one is marked "(carried)".

@@ -457,7 +457,7 @@ def jury_officials():
 def registrations_for_year(year):
     sql = """
         SELECT reg.champ_id, reg.cat_code, reg.carrier_id, reg.carried_id, reg.bib_number, reg.status,
-               reg.carrier_weigh_in_kg, reg.carried_weigh_in_kg, reg.backpack_weight_kg, cat.name AS series,
+               reg.carrier_weigh_in_kg, reg.carried_weigh_in_kg, reg.backpack_weight_kg, reg.refund_amount, cat.name AS series,
                CONCAT_WS(' ', ca.first_name, ca.last_name) AS carrier,
                CONCAT_WS(' ', cr.first_name, cr.last_name) AS carried
           FROM REGISTRATION reg
@@ -519,3 +519,29 @@ def championships_overview():
 def deletion_log():
     return fetch_all("SELECT champ_id, year, deleted_by, deleted_at, reason "
                      "FROM CHAMPIONSHIP_DELETION_LOG ORDER BY deleted_at DESC, log_id DESC")
+
+
+def accredited_media(year):
+    """Media outlets accredited for a championship (PRESS_OUTLET, ACCREDITS)."""
+    sql = """SELECT po.name, po.country, acc.drone_permission
+               FROM ACCREDITS acc
+               JOIN PRESS_OUTLET po ON po.outlet_id = acc.outlet_id
+               JOIN CHAMPIONSHIP ch ON ch.champ_id = acc.champ_id
+              WHERE ch.year = %s
+              ORDER BY po.name"""
+    return fetch_all(sql, (year,))
+
+
+def organiser_info():
+    """Primary organiser information (ORGANISER)."""
+    return fetch_one("SELECT name, legal_form, founded_year FROM ORGANISER LIMIT 1")
+
+
+def venue_for_year(year):
+    """Venue and dates of a championship edition (VENUE, CHAMPIONSHIP)."""
+    sql = """SELECT v.name AS venue_name, v.street, v.city, v.track_length_m,
+                      ch.start_date, ch.end_date, ch.year
+                 FROM CHAMPIONSHIP ch
+                 JOIN VENUE v ON v.venue_id = ch.venue_id
+                WHERE ch.year = %s"""
+    return fetch_one(sql, (year,))

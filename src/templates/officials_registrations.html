@@ -1,8 +1,32 @@
 {% extends "base.html" %}
 {% block title %}Registrations{% endblock %}
 {% block content %}
-<h1>Change a carrier: {{ year }}</h1>
+<h1>Change or cancel a registration: {{ year }}</h1>
 <nav class="tabs">{% for y in [latest_year, next_year] %}<a {% if y == year %}class="active"{% endif %} href="{{ url_for('officials_registrations', year=y) }}">{{ y }}</a>{% endfor %}</nav>
-<div class="table-wrap"><table><thead><tr><th>Series</th><th>Bib</th><th>Carrier</th><th>Carried</th><th>Carried weigh-in</th><th>Backpack</th><th>Status</th><th></th></tr></thead>
-<tbody>{% for r in rows %}<tr><td>{{ r.series }}</td><td>{{ r.bib_number or '' }}</td><td>{{ r.carrier }}</td><td>{{ r.carried }}</td><td>{{ (r.carried_weigh_in_kg ~ ' kg') if r.carried_weigh_in_kg is not none else 'Not published' }}</td><td>{{ r.backpack_weight_kg }} kg</td><td><span class="chip">{{ r.status }}</span></td><td>{% if r.status == 'CONFIRMED' %}<a href="{{ url_for('officials_change_role', champ_id=r.champ_id, cat_code=r.cat_code, carrier_id=r.carrier_id, carried_id=r.carried_id) }}">Change</a>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+<div class="table-wrap"><table><thead><tr><th>Series</th><th>Bib</th><th>Carrier</th><th>Carried</th><th>Carried weigh-in</th><th>Backpack</th><th>Status</th><th>Actions</th></tr></thead>
+<tbody>{% for r in rows %}<tr>
+  <td>{{ r.series }}</td>
+  <td>{{ r.bib_number or '' }}</td>
+  <td>{{ r.carrier }}</td>
+  <td>{{ r.carried }}</td>
+  <td>{{ (r.carried_weigh_in_kg ~ ' kg') if r.carried_weigh_in_kg is not none else 'Not published' }}</td>
+  <td>{{ r.backpack_weight_kg }} kg</td>
+  <td>
+    <span class="chip">{{ r.status }}</span>
+    {% if r.status == 'CANCELLED' and r.refund_amount is not none %}
+      <span class="muted" style="font-size:0.85rem;">(Refund: €{{ r.refund_amount|int }})</span>
+    {% endif %}
+  </td>
+  <td>
+    {% if r.status == 'CONFIRMED' %}
+      <div style="display:flex; gap:8px; align-items:center;">
+        <a class="button" style="padding:4px 8px; font-size:0.85rem;" href="{{ url_for('officials_change_role', champ_id=r.champ_id, cat_code=r.cat_code, carrier_id=r.carrier_id, carried_id=r.carried_id) }}">Change</a>
+        <form method="post" action="{{ url_for('officials_cancel_registration', champ_id=r.champ_id, cat_code=r.cat_code, carrier_id=r.carrier_id, carried_id=r.carried_id) }}" onsubmit="return confirm('Cancel this registration? Refund will be calculated per cancellation rules (C7/C15).');" style="margin:0;">
+          <input type="hidden" name="year" value="{{ year }}">
+          <button class="danger" style="padding:4px 8px; font-size:0.85rem;">Cancel</button>
+        </form>
+      </div>
+    {% endif %}
+  </td>
+</tr>{% endfor %}</tbody></table></div>
 {% endblock %}

@@ -689,3 +689,30 @@ def delete_championship(champ_id, deleted_by, reason):
             INSERT INTO CHAMPIONSHIP_DELETION_LOG (champ_id, year, deleted_by, deleted_at, reason)
             VALUES (%s, %s, %s, NOW(), %s)""", (champ_id, row["year"], deleted_by, reason))
         return row["year"]
+
+
+def cancel_registration(champ_id, cat_code, carrier_id, carried_id):
+    """Cancel a confirmed registration. Triggers C7/C15 refund calculation."""
+    with transaction() as cur:
+        cur.execute("""
+            SELECT status, fee_paid FROM REGISTRATION
+             WHERE champ_id = %s AND cat_code = %s AND carrier_id = %s AND carried_id = %s FOR UPDATE""",
+                    (champ_id, cat_code, carrier_id, carried_id))
+        reg = cur.fetchone()
+        if reg is None:
+            raise FormError("That registration does not exist.")
+        if reg["status"] == "CANCELLED":
+            raise FormError("This registration is already cancelled.")
+
+        cur.execute("""
+            UPDATE REGISTRATION
+               SET status = 'CANCELLED', cancelled_at = NOW()
+             WHERE champ_id = %s AND cat_code = %s AND carrier_id = %s AND carried_id = %s""",
+                    (champ_id, cat_code, carrier_id, carried_id))
+
+        cur.execute("""
+            SELECT refund_amount, fee_paid FROM REGISTRATION
+             WHERE champ_id = %s AND cat_code = %s AND carrier_id = %s AND carried_id = %s""",
+                    (champ_id, cat_code, carrier_id, carried_id))
+        row = cur.fetchone()
+        return row["refund_amount"]
