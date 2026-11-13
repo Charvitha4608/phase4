@@ -4,7 +4,7 @@
 -- Run with: mysql -u <user> -p < schema.sql
 
 DROP DATABASE IF EXISTS wife_carrying_db;
-CREATE DATABASE wife_carrying_db CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+CREATE DATABASE wife_carrying_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE wife_carrying_db;
 
 -- ---------------------------------------------------------------------------
