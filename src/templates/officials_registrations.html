@@ -1,8 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Registrations{% endblock %}
 {% block content %}
-<h1>Change or cancel a registration: {{ year }}</h1>
+<h1>Registrations: {{ year }}</h1>
 <nav class="tabs">{% for y in [latest_year, next_year] %}<a {% if y == year %}class="active"{% endif %} href="{{ url_for('officials_registrations', year=y) }}">{{ y }}</a>{% endfor %}</nav>
+{% if rows %}
 <div class="table-wrap"><table><thead><tr><th>Series</th><th>Bib</th><th>Carrier</th><th>Carried</th><th>Carried weigh-in</th><th>Backpack</th><th>Status</th><th>Actions</th></tr></thead>
 <tbody>{% for r in rows %}<tr>
   <td>{{ r.series }}</td>
@@ -29,4 +30,7 @@
     {% endif %}
   </td>
 </tr>{% endfor %}</tbody></table></div>
+{% else %}
+<p class="muted">No registrations found for {{ year }}.</p>
+{% endif %}
 {% endblock %}

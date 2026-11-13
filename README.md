@@ -121,7 +121,8 @@ Programme, Track and Rules, Official Grand Prix, Contact and Media and Accredita
 17. **Correct a finish time** (U-1, update). `/officials/results`. Choose a heat, enter a new time on a row and press Save. Recalculates rank and gap for the heat and puts the pair's pending protests under review.
 18. **Decide a protest** (U-3, update). `/officials/protests`. Choose a jury official and outcome, and press Record decision. Upholding disqualifies the pair and recalculates the heat.
 19. **Change a carrier** (U-2, update). `/officials/registrations`. Press Change on a row, choose the new carrier and press Replace pair. Replaces the pair and removes its results in that championship from the medal table.
-20. **Delete a championship** (D-1, delete). `/officials/championships`. Enter a name and reason and press Delete. Rejected if records still refer to the championship, and logged on success.
+20. **Cancel a registration** (update/delete). /officials/registrations. Press Cancel on a confirmed row. Sets registration status to CANCELLED, records cancellation timestamp, and activates trigger trg_registration_cancel to calculate the refund (€fee − €10 if cancelled >= 30 days before event, else €0 per C7/C15).
+21. **Delete a championship** (D-1, delete). `/officials/championships`. Enter a name and reason and press Delete. Rejected if records still refer to the championship, and logged on success.
 
 The officials' area has no login, since accounts are not part of the functional requirements.
 
@@ -173,6 +174,18 @@ eq$ carried), C2 (carried age $\ge 17$), C1 (new carrier age $\ge 18$), and C10.
 - **Promotions & Notifications**: Automatically identifies newly promoted pairs and dispatches notifications via `queue_notification(..., "PROMOTED_IN_HEAT")`. Podium promotions immediately update the Main Race Medal Table.
 - **Non-Refundable Fee**: Sourced fee remains paid (€150).
 - **Constraints Checked**: C13 (verifies official holds `JURY` role), C5 (checks 60-minute SLA), and C12.
+
+#### **Cancel a Registration (C7 / C15 Refund Rules)**
+- **Operation**: /officials/registrations → **Cancel** button on any confirmed registration.
+- **Trigger Execution**: Sets status = 'CANCELLED' and cancelled_at = NOW().
+- **Constraint C7 & C15 Enforcement**: Database trigger trg_registration_cancel calculates:
+  $\text{refund} = \\max(\\text{fee\\_paid} - 10, 0) \\quad \\text{if } \\text{DATEDIFF}(\\text{start\\_date}, \\text{cancelled\\_at}) \\ge 30, \\quad \\text{else } 0.$
+- **UI Feedback**: Displays the calculated refund in the notification message, and shows the cancellation status and refund in the registrations table.
+
+#### **Database-Driven Information Pages**
+- **Media & Accreditation (/accreditation-press)**: Dynamic table pulling accredited media outlets, nationality, and drone permissions from PRESS_OUTLET joined with ACCREDITS.
+- **Contact (/contact)**: Dynamically queries the ORGANISER table to display registered corporate details and legal form (queries.organiser_info).
+- **Programme (/programme)**: Queries CHAMPIONSHIP and VENUE to show the official venue name and track distance from the database.
 
 #### **D-1: Delete a Cancelled Championship**
 - **Dependency Checks**: Verified before deletion that no dependent records exist (`RACE_HEAT`, `PROTEST`, `REGISTRATION`, `SPONSORS`, `ACCREDITS`, `TEAM_ROSTER`). If any exist, deletion is halted with an instructional message to archive the edition instead.
